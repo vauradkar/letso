@@ -1,0 +1,18 @@
+[package]
+edition = "2024"
+name = "server"
+version = "0.1.0"
+
+[dependencies]
+clap = { version = "4.5.43", features = ["derive"] }
+env_logger = "0.11.8"
+log = "0.4.27"
+poem = { version = "3.1.12", features = ["static-files"] }
+poem-openapi = { version = "5.1.16", features = ["swagger-ui"] }
+shlib = { path = "../shlib" }
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
+
+[lints.rust]
+missing_docs = { level = "warn" }
+rust-2024-compatibility = { level = "warn" }
+unsafe_code = { level = "warn" }
