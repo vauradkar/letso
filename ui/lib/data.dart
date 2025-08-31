@@ -1,43 +1,79 @@
-class DirectoryEntry {
-  final String name;
+import 'package:json_annotation/json_annotation.dart';
+
+part 'data.g.dart';
+
+@JsonSerializable()
+class FileStat {
   final int size;
-  final String mtime; // Using String for simplicity, can be DateTime.
+  final String mtime; // using string for simplicity, can be datetime.
+  @JsonKey(name: 'is_directory')
   final bool isDirectory;
 
-  DirectoryEntry({
-    required this.name,
+  FileStat({
     required this.size,
     required this.mtime,
     required this.isDirectory,
   });
 
-  // Factory constructor to create a DirectoryItem from a JSON map.
-  factory DirectoryEntry.fromJson(Map<String, dynamic> json) {
-    return DirectoryEntry(
-      name: json['name'] as String,
-      size: json['size'] as int,
-      mtime: json['mtime'] as String,
-      isDirectory: json['is_directory'] as bool,
-    );
-  }
+  factory FileStat.fromJson(Map<String, dynamic> json) =>
+      _$FileStatFromJson(json);
+  Map<String, dynamic> toJson() => _$FileStatToJson(this);
 }
 
-// Define the Dart struct for a directory item.
-class DirectoryEntries {
-  final List<String> currentPath;
+@JsonSerializable()
+class DirectoryEntry {
+  final String name;
+  final FileStat stats;
+
+  DirectoryEntry({required this.name, required this.stats});
+  factory DirectoryEntry.fromJson(Map<String, dynamic> json) =>
+      _$DirectoryEntryFromJson(json);
+  Map<String, dynamic> toJson() => _$DirectoryEntryToJson(this);
+
+  bool get isDirectory => stats.isDirectory;
+  int get size => stats.size;
+  String get mtime => stats.mtime;
+}
+
+@JsonSerializable()
+class PortablePath {
+  final List<String> components;
+
+  PortablePath({required this.components});
+  factory PortablePath.fromJson(Map<String, dynamic> json) =>
+      _$PortablePathFromJson(json);
+  Map<String, dynamic> toJson() => _$PortablePathToJson(this);
+
+  void add(String component) {
+    components.add(component);
+  }
+
+  PortablePath subPath(int index) {
+    return PortablePath(components: components.sublist(0, index + 1));
+  }
+
+  int get length => components.length;
+}
+
+@JsonSerializable()
+class Directory {
+  @JsonKey(name: 'current_path')
+  final PortablePath currentPath;
   final List<DirectoryEntry> items;
 
-  DirectoryEntries({required this.currentPath, required this.items});
+  Directory({required this.currentPath, required this.items});
+  factory Directory.fromJson(Map<String, dynamic> json) =>
+      _$DirectoryFromJson(json);
+  Map<String, dynamic> toJson() => _$DirectoryToJson(this);
+}
 
-  // Factory constructor to create a DirectoryItem from a JSON map.
-  factory DirectoryEntries.fromJson(Map<String, dynamic> json) {
-    var entriesJson = json['items'] as List;
-    List<DirectoryEntry> entriesList = entriesJson
-        .map((entry) => DirectoryEntry.fromJson(entry as Map<String, dynamic>))
-        .toList();
+@JsonSerializable()
+class LookupResult {
+  final PortablePath path;
+  final List<FileStat>? stats;
 
-    List<String> currentPath = (json['current_path'] as List<dynamic>)
-        .cast<String>();
-    return DirectoryEntries(currentPath: currentPath, items: entriesList);
-  }
+  LookupResult(this.stats, {required this.path});
+  factory LookupResult.fromJson(Map<String, dynamic> json) =>
+      _$LookupResultFromJson(json);
+  Map<String, dynamic> toJson() => _$LookupResultToJson(this);
 }

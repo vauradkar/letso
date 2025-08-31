@@ -1,4 +1,4 @@
-import 'package:letso/main.dart';
+import 'package:letso/preferences.dart';
 
 Uri getUri(Preferences preferences, String path) {
   if (preferences.serverAddress == null || preferences.serverPort == null) {

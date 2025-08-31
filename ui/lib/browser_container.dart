@@ -6,6 +6,11 @@ import 'package:letso/data.dart';
 import 'package:letso/file_browser.dart';
 import 'package:letso/main.dart';
 import 'package:letso/platform_native.dart' if (kIsWeb) 'platform_web.dart';
+import 'package:letso/app_state.dart';
+import 'package:letso/data.dart';
+import 'package:letso/file_browser.dart';
+import 'package:letso/platform_native.dart' if (kIsWeb) 'platform_web.dart';
+import 'package:letso/preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EventHandlers {
@@ -21,14 +26,15 @@ class EventHandlers {
 }
 
 class BrowserContainer extends StatefulWidget {
-  const BrowserContainer({super.key});
+  final AppState appState;
+  const BrowserContainer({super.key, required this.appState});
 
   @override
   State<BrowserContainer> createState() => _BrowserContainerState();
 }
 
 class _BrowserContainerState extends State<BrowserContainer> {
-  List<String> currentDirectory = ["/"];
+  PortablePath currentDirectory = PortablePath(components: ["/"]);
 
   void _onItemTap(DirectoryEntry item) {
     debugPrint('Item tapped: ${item.name}');
@@ -57,12 +63,12 @@ class _BrowserContainerState extends State<BrowserContainer> {
     }
 
     setState(() {
-      currentDirectory = currentDirectory.sublist(0, index + 1);
+      currentDirectory = currentDirectory.subPath(index);
       debugPrint('Current directory updated: $currentDirectory');
     });
   }
 
-  Future<DirectoryEntries> fetchData(List<String> currentDirectory) async {
+  Future<Directory> fetchData(PortablePath currentDirectory) async {
     // await Future.delayed(const Duration(seconds: 1));
     final prefs = SharedPreferencesAsync();
     String? serverAddress = await prefs.getString('serverAddress');
@@ -99,7 +105,7 @@ class _BrowserContainerState extends State<BrowserContainer> {
         debugPrint('Response body: ${response.body}');
         final Map<String, dynamic> jsonList = json.decode(response.body);
         debugPrint('Response JSON: $jsonList');
-        return DirectoryEntries.fromJson(jsonList);
+        return Directory.fromJson(jsonList);
       } else {
         // If the server did not return a 200 OK response, handle the error.
         throw Exception(
@@ -114,7 +120,7 @@ class _BrowserContainerState extends State<BrowserContainer> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DirectoryEntries>(
+    return FutureBuilder<Directory>(
       future: fetchData(currentDirectory),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -128,8 +134,9 @@ class _BrowserContainerState extends State<BrowserContainer> {
             onAncestorTap: _onAncestorTap,
           );
           return FileBrowser(
-            directoryEntries: snapshot.data!,
+            directory: snapshot.data!,
             eventHandlers: eventHandlers,
+            api: widget.appState.api,
           );
         } else {
           // Handle case where data is null

@@ -1,5 +1,5 @@
 import 'package:flutter/rendering.dart';
-import 'package:letso/main.dart';
+import 'package:letso/preferences.dart';
 import 'package:web/web.dart' as web;
 
 Uri getUri(Preferences preferences, String path) {

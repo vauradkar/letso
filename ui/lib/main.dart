@@ -1,30 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:letso/api.dart';
+import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
+import 'package:letso/preferences.dart';
 import 'package:letso/settings_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-class Preferences {
-  String? serverAddress;
-  String? serverPort;
-
-  bool isConfigured() {
-    return serverAddress != null &&
-        serverPort != null &&
-        serverAddress!.isNotEmpty &&
-        serverPort!.isNotEmpty;
-  }
-
-  static Future<Preferences> loadPreferences() async {
-    // await Future.delayed(const Duration(seconds: 2));
-    final SharedPreferencesAsync prefs = SharedPreferencesAsync();
-    String? serverAddress = await prefs.getString('serverAddress');
-    String? serverPort = await prefs.getString('serverPort');
-
-    return Preferences()
-      ..serverAddress = serverAddress
-      ..serverPort = serverPort;
-  }
-}
 
 // This is the main entry point for the Flutter application.
 void main() async {
@@ -87,8 +66,10 @@ class _MyAppState extends State<MyApp> {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (snapshot.hasData) {
             Preferences preferences = snapshot.data as Preferences;
+            Api api = Api.create(preferences);
+            AppState appState = AppState(preferences: preferences, api: api);
             if (preferences.isConfigured()) {
-              return BrowserContainer();
+              return BrowserContainer(appState: appState);
             } else {
               return Scaffold(
                 body: SettingsPage(

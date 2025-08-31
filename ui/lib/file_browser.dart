@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:letso/browser_container.dart';
 import 'package:letso/data.dart';
 import 'package:letso/upload_manager.dart';
+import 'package:letso/api.dart';
+import 'package:letso/browser_container.dart';
+import 'package:letso/data.dart';
+import 'package:letso/upload_manager.dart';
 
 enum ViewType { icon, list }
 
@@ -13,13 +17,15 @@ enum SortColumn { name, size, kind, mtime }
 enum SortOrder { ascending, descending }
 
 class FileBrowser extends StatefulWidget {
-  final DirectoryEntries directoryEntries;
+  final Directory directory;
   final EventHandlers eventHandlers;
+  final Api api;
 
   const FileBrowser({
     super.key,
-    required this.directoryEntries,
+    required this.directory,
     required this.eventHandlers,
+    required this.api,
   });
 
   @override
@@ -35,15 +41,15 @@ class _FileBrowserState extends State<FileBrowser> {
   @override
   void initState() {
     super.initState();
-    _sortedItems = List.from(widget.directoryEntries.items);
+    _sortedItems = List.from(widget.directory.items);
     _sortItems();
   }
 
   @override
   void didUpdateWidget(FileBrowser oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.directoryEntries.items != widget.directoryEntries.items) {
-      _sortedItems = List.from(widget.directoryEntries.items);
+    if (oldWidget.directory.items != widget.directory.items) {
+      _sortedItems = List.from(widget.directory.items);
       _sortItems();
     }
   }
@@ -151,11 +157,12 @@ class _FileBrowserState extends State<FileBrowser> {
 
   Widget buildInternal(BuildContext context) {
     UploadManager uploadManager = UploadManager(
-      widget.directoryEntries.currentPath,
+      widget.directory.currentPath,
+      api: widget.api,
     );
     List<Widget> ancestors = [];
-    for (int i = 0; i < widget.directoryEntries.currentPath.length; i++) {
-      String ancestor = widget.directoryEntries.currentPath[i];
+    for (int i = 0; i < widget.directory.currentPath.length; i++) {
+      String ancestor = widget.directory.currentPath.components[i];
       ancestors.add(
         ElevatedButton(
           onPressed: () {
@@ -198,7 +205,7 @@ class _FileBrowserState extends State<FileBrowser> {
                 label: Text('Up'),
                 onPressed: () {
                   widget.eventHandlers.onAncestorTap(
-                    widget.directoryEntries.currentPath.length - 2,
+                    widget.directory.currentPath.length - 2,
                   );
                 },
                 icon: Transform.rotate(
