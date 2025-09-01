@@ -53,6 +53,11 @@ class PortablePath {
   }
 
   int get length => components.length;
+
+  @override
+  String toString() {
+    return components.join('/');
+  }
 }
 
 @JsonSerializable()

@@ -40,6 +40,9 @@ dependencies:
   web: ^1.1.1
   file_picker: ^10.3.1
   json_annotation: ^4.9.0
+  dart_either: ^2.0.0
+  logger: ^2.6.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -96,3 +99,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  fonts:
+    - family: GoogleSansCode
+      fonts:
+        - asset: fonts/GoogleSansCode-Regular.ttf
+    - family: FiraMonoNerdFont
+      fonts:
+        - asset: fonts/FiraMonoNerdFont-Regular.otf
