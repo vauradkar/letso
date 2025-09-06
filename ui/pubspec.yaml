@@ -43,6 +43,7 @@ dependencies:
   dart_either: ^2.0.0
   logger: ^2.6.1
   path_provider: ^2.1.5
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

@@ -62,3 +62,13 @@ LookupResult _$LookupResultFromJson(Map<String, dynamic> json) => LookupResult(
 
 Map<String, dynamic> _$LookupResultToJson(LookupResult instance) =>
     <String, dynamic>{'path': instance.path, 'stats': instance.stats};
+
+SyncPath _$SyncPathFromJson(Map<String, dynamic> json) => SyncPath(
+  local: PortablePath.fromJson(json['local'] as Map<String, dynamic>),
+  remote: PortablePath.fromJson(json['remote'] as Map<String, dynamic>),
+);
+
+Map<String, dynamic> _$SyncPathToJson(SyncPath instance) => <String, dynamic>{
+  'local': instance.local,
+  'remote': instance.remote,
+};

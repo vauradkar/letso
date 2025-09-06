@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:letso/api.dart';
 import 'package:letso/data.dart';
 import 'dart:io' as io;
+import 'package:path/path.dart' as pp;
 
 import 'package:letso/logger_manager.dart';
 
@@ -15,23 +16,22 @@ class UploadResults {
 }
 
 class UploadManager {
-  final PortablePath destDirectory;
   final Api api;
 
-  UploadManager(this.destDirectory, {required this.api});
+  UploadManager({required this.api});
 
-  Future<void> uploadFile() async {
+  Future<void> uploadFile(final PortablePath dest) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       withData: true,
     );
     if (result != null) {
-      api.uploadFile(result.files.first, destDirectory);
+      api.uploadFile(result.files.first, dest);
     } else {
-      logger.d('upload cancelled to $destDirectory');
+      logger.d('upload cancelled to $dest');
     }
   }
 
-  Future<void> uploadFiles() async {
+  Future<void> uploadFiles(final PortablePath dest) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       withData: true,
@@ -42,7 +42,7 @@ class UploadManager {
       return;
     }
     for (var file in result.files) {
-      await api.uploadFile(file, destDirectory);
+      await api.uploadFile(file, dest);
     }
   }
 
@@ -54,37 +54,85 @@ class UploadManager {
     return elements;
   }
 
-  Future<UploadResults> _lookupAndUpload(String directory) async {
+  Future<UploadResults> _lookupAndUpload(
+    final PortablePath dest,
+    String directory,
+  ) async {
     UploadResults results = UploadResults();
+    logger.d('Selected directory: $directory');
     final files = await getFilesInDirectoryRecursively(directory);
     for (var file in files) {
-      logger.d('Found file: ${file.path}');
+      PortablePath destDir = PortablePath(components: []);
+      for (var c in dest.components) {
+        if (c.isNotEmpty) {
+          destDir.add(c);
+        }
+      }
+      destDir.add(pp.basename(directory));
+      for (var c in pp.split(
+        pp.dirname(pp.relative(file.path, from: directory)),
+      )) {
+        if (c.isNotEmpty) {
+          destDir.add(c);
+        }
+      }
+
+      logger.d('Found file: ${file.path} to upload to $destDir');
+      if (file is! io.File) {
+        continue; // Skip if not a file
+      }
       final bytes = await io.File(file.path).readAsBytes();
       PlatformFile platformFile = PlatformFile(
         name: file.path.split('/').last,
         size: bytes.length,
         bytes: bytes,
       );
-      api.uploadFile(platformFile, destDirectory);
+      api.uploadFile(platformFile, destDir);
 
       results.successCount += 1;
     }
     // Implement the logic to upload all files in the directory.
-    logger.d('Uploading directory: $directory to $destDirectory');
+    logger.d('Uploading directory: $directory to $dest');
     // You might want to list all files in the directory and call uploadFile for each.
     return results;
   }
 
-  Future<UploadResults> uploadDirectory() async {
+  Future<(String?, Future<UploadResults>)> _uploadDirectory(
+    final PortablePath dest,
+  ) async {
     if (kIsWeb) {
       logger.d('Directory upload is not supported on web');
-      return UploadResults();
+      return Future.value((null, Future.value(UploadResults())));
     }
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory == null) {
       logger.d('No directory selected for upload');
-      return UploadResults();
+      return Future.value((null, Future.value(UploadResults())));
     }
-    return _lookupAndUpload(selectedDirectory);
+    return Future.value((
+      selectedDirectory,
+      _lookupAndUpload(dest, selectedDirectory),
+    ));
+  }
+
+  Future<UploadResults> uploadDirectory(final PortablePath dest) async {
+    final (selectedDirectory, resultsFuture) = await _uploadDirectory(dest);
+    return resultsFuture;
+  }
+
+  Future<(SyncPath?, Future<UploadResults>)> syncDirectory(
+    final PortablePath dest,
+  ) async {
+    final (selectedDirectory, resultsFuture) = await _uploadDirectory(dest);
+    if (selectedDirectory == null) {
+      return Future.value((null, Future.value(UploadResults())));
+    }
+    final syncPath = SyncPath(
+      local: selectedDirectory.startsWith('/')
+          ? PortablePath(components: pp.split(selectedDirectory))
+          : PortablePath(components: ['/', ...pp.split(selectedDirectory)]),
+      remote: dest,
+    );
+    return Future.value((syncPath, resultsFuture));
   }
 }

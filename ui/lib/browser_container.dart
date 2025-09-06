@@ -81,7 +81,7 @@ class _BrowserContainerState extends State<BrowserContainer> {
           return FileBrowser(
             directory: snapshot.data!.orNull()!,
             eventHandlers: eventHandlers,
-            api: widget.appState.api,
+            appState: widget.appState,
           );
         } else {
           // Handle case where data is null

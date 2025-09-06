@@ -82,3 +82,16 @@ class LookupResult {
       _$LookupResultFromJson(json);
   Map<String, dynamic> toJson() => _$LookupResultToJson(this);
 }
+
+@JsonSerializable()
+class SyncPath {
+  final PortablePath local;
+  final PortablePath remote;
+
+  SyncPath({required this.local, required this.remote});
+
+  Map<String, dynamic> toJson() => _$SyncPathToJson(this);
+
+  static SyncPath fromJson(Map<String, dynamic> json) =>
+      _$SyncPathFromJson(json);
+}

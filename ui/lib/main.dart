@@ -6,6 +6,7 @@ import 'package:letso/browser_container.dart';
 import 'package:letso/log_viewer.dart';
 import 'package:letso/preferences.dart';
 import 'package:letso/settings_page.dart';
+import 'package:letso/upload_manager.dart';
 
 // This is the main entry point for the Flutter application.
 void main() async {
@@ -92,7 +93,11 @@ class _MyAppState extends State<MyApp> {
           } else if (snapshot.hasData) {
             Preferences preferences = snapshot.data as Preferences;
             Api api = Api.create(preferences);
-            AppState appState = AppState(preferences: preferences, api: api);
+            AppState appState = AppState(
+              preferences: preferences,
+              api: api,
+              uploadManager: UploadManager(api: api),
+            );
             if (preferences.isConfigured()) {
               return BrowserContainer(appState: appState);
             } else {

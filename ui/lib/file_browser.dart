@@ -2,13 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
 import 'package:letso/data.dart';
-import 'package:letso/upload_manager.dart';
-import 'package:letso/api.dart';
-import 'package:letso/browser_container.dart';
-import 'package:letso/data.dart';
-import 'package:letso/upload_manager.dart';
+import 'package:letso/settings.dart';
 
 enum ViewType { icon, list }
 
@@ -19,13 +16,13 @@ enum SortOrder { ascending, descending }
 class FileBrowser extends StatefulWidget {
   final Directory directory;
   final EventHandlers eventHandlers;
-  final Api api;
+  final AppState appState;
 
   const FileBrowser({
     super.key,
     required this.directory,
     required this.eventHandlers,
-    required this.api,
+    required this.appState,
   });
 
   @override
@@ -156,10 +153,6 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget buildInternal(BuildContext context) {
-    UploadManager uploadManager = UploadManager(
-      widget.directory.currentPath,
-      api: widget.api,
-    );
     List<Widget> ancestors = [];
     for (int i = 0; i < widget.directory.currentPath.length; i++) {
       String ancestor = widget.directory.currentPath.components[i];
@@ -216,17 +209,35 @@ class _FileBrowserState extends State<FileBrowser> {
               ElevatedButton.icon(
                 label: Text("Upload file"),
                 onPressed: () {
-                  uploadManager.uploadFiles();
+                  widget.appState.uploadManager.uploadFiles(
+                    widget.directory.currentPath,
+                  );
                 },
                 icon: const Icon(Icons.upload_file),
               ),
               if (!kIsWeb)
                 ElevatedButton.icon(
                   onPressed: () {
-                    uploadManager.uploadDirectory();
+                    widget.appState.uploadManager.uploadDirectory(
+                      widget.directory.currentPath,
+                    );
                   },
                   icon: const Icon(Icons.drive_folder_upload),
-                  label: Text("Upload folder"),
+                  label: Text("Upload directory"),
+                ),
+              if (!kIsWeb)
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    var (syncPath, result) = await widget.appState.uploadManager
+                        .syncDirectory(widget.directory.currentPath);
+                    if (syncPath != null) {
+                      var settings = Settings();
+                      await settings.load();
+                      settings.addSyncPath(syncPath);
+                    }
+                  },
+                  icon: const Icon(Icons.sync),
+                  label: Text("Sync directory"),
                 ),
               const Spacer(),
               ToggleButtons(
