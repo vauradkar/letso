@@ -3,7 +3,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use log::debug;
+use log::error;
 use log::info;
+use log::trace;
 
 use crate::Directory;
 use crate::DirectoryEntry;
@@ -35,11 +37,14 @@ impl RelativeFs {
     /// * `PathBuf` - The absolute path corresponding to the relative path.
     pub fn as_abs_path(&self, relative: &PortablePath) -> PathBuf {
         let mut full_path = self.base_dir.clone();
-        for component in &relative.components {
-            if component != std::path::Component::RootDir.as_os_str().to_str().unwrap() {
-                full_path.push(component);
-            }
-        }
+        let rel: PathBuf = relative.into();
+        full_path.push(rel);
+        // for component in &relative.components {
+        //     if component !=
+        // std::path::Component::RootDir.as_os_str().to_str().unwrap() {
+        //         full_path.push(component);
+        //     }
+        // }
         full_path
     }
 
@@ -63,7 +68,6 @@ impl RelativeFs {
                 how: e.to_string(),
             })?;
 
-        debug!("line: {}", line!());
         // Sort: directories first, then files, both alphabetically
         items.sort_by(|a, b| match (a.stats.is_directory, b.stats.is_directory) {
             (true, false) => std::cmp::Ordering::Less,
@@ -71,7 +75,7 @@ impl RelativeFs {
             _ => a.name.cmp(&b.name),
         });
 
-        debug!("line: {} outgoinf:{}", line!(), full_path.display());
+        debug!("line: {} outgoing:{}", line!(), full_path.display());
 
         Ok(Directory {
             current_path: path.clone(),
@@ -126,7 +130,7 @@ impl RelativeFs {
                 how: e.to_string(),
             })?;
 
-            info!(
+            trace!(
                 "relative_path: {}, is_directory: {}, size: {}, modified: {}",
                 relative_path.display(),
                 metadata.is_dir(),
@@ -142,15 +146,16 @@ impl RelativeFs {
                 },
             });
         }
-        info!("line: {} items: {:?}", line!(), items);
+        trace!("line: {} items: {:?}", line!(), items);
         Ok(items)
     }
 
     async fn create_all(&self, path: &PortablePath) -> Result<(), String> {
         let full_path = self.as_abs_path(path);
-        tokio::fs::create_dir_all(&full_path)
-            .await
-            .map_err(|e| format!("Failed to create directories: {e}"))?;
+        tokio::fs::create_dir_all(&full_path).await.map_err(|e| {
+            error!("Failed to create directory {} {}", e, full_path.display());
+            format!("Failed to create directories: {e}")
+        })?;
         Ok(())
     }
 

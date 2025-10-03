@@ -3,17 +3,45 @@ use std::path::PathBuf;
 
 use poem_openapi::Object;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
+use serde::de;
 
 use crate::Error;
 use crate::FileStat;
 use crate::LookupResult;
 
+/// A custom deserializer function for a Vec<String> that checks for ".."
+/// components.
+fn deserialize_components<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let components = Vec::<String>::deserialize(deserializer)?;
+
+    if components.iter().any(|c| c == ".." || c == ".") {
+        // If an invalid component is found, return a custom error
+        Err(de::Error::custom("Path component cannot contain '..'"))
+    } else {
+        // If all components are valid, return the result
+        Ok(components)
+    }
+}
+
 /// Represents a filesystem path as a vector of its portable components.
 #[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq)]
 pub struct PortablePath {
     /// The components of the portable path as a vector of strings.
-    pub components: Vec<String>,
+    #[serde(deserialize_with = "deserialize_components")]
+    components: Vec<String>,
+}
+
+impl PortablePath {
+    /// Returns the last component of the portable path, typically the file or
+    /// directory name.
+    pub fn basename(&self) -> Option<&str> {
+        self.components.last().map(|s| s.as_str())
+    }
 }
 
 impl Display for PortablePath {
@@ -72,8 +100,44 @@ impl PortablePath {
     }
 }
 
-impl From<&PathBuf> for PortablePath {
-    fn from(path: &PathBuf) -> Self {
+impl<T> TryFrom<&[T]> for PortablePath
+where
+    T: AsRef<str>,
+{
+    type Error = Error;
+
+    fn try_from(components: &[T]) -> std::result::Result<Self, Self::Error> {
+        let mut c = Vec::new();
+        for comp in components {
+            let s = comp.as_ref();
+            if s.contains('/') || s.contains('\\') {
+                return Err(Error::InvalidArgument(format!(
+                    "Invalid path component: {}",
+                    s
+                )));
+            }
+            if s == "." || s == ".." || s == "" {
+                return Err(Error::InvalidArgument(format!(
+                    "Invalid path component: {}",
+                    s
+                )));
+            }
+            c.push(s.to_string());
+        }
+        Ok(PortablePath { components: c })
+    }
+}
+
+impl TryFrom<&PathBuf> for PortablePath {
+    type Error = Error;
+
+    fn try_from(path: &PathBuf) -> Result<Self, Self::Error> {
+        let str = path.to_string_lossy();
+        if str == "." || str == ".." {
+            return Err(Error::InvalidArgument(
+                "Path cannot contain '.' or '..' components".to_string(),
+            ));
+        }
         let components = path
             .components()
             .filter_map(|comp| {
@@ -85,7 +149,7 @@ impl From<&PathBuf> for PortablePath {
                 }
             })
             .collect();
-        PortablePath { components }
+        Ok(PortablePath { components })
     }
 }
 
@@ -93,7 +157,9 @@ impl From<&PortablePath> for PathBuf {
     fn from(portable: &PortablePath) -> Self {
         let mut path = PathBuf::new();
         for comp in &portable.components {
-            path.push(comp);
+            if comp != "." && comp != ".." && comp != "/" {
+                path.push(comp);
+            }
         }
         path
     }

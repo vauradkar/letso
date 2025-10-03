@@ -81,13 +81,7 @@ mod tests {
 
     #[test]
     fn test_path() {
-        let path = PortablePath {
-            components: vec![
-                "dir1".to_string(),
-                "dir2".to_string(),
-                "file.txt".to_string(),
-            ],
-        };
+        let path = PortablePath::try_from(["dir1", "dir2", "file.txt"].as_slice()).unwrap();
         let s = "{\"components\":[\"dir1\",\"dir2\",\"file.txt\"]}";
         assert_eq!(s, &serde_json::to_string(&path).unwrap());
         assert_eq!(path, serde_json::from_str(s).unwrap());
