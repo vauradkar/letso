@@ -1,0 +1,36 @@
+#
+# WARNING: To install Immich, follow our guide: https://docs.immich.app/install/docker-compose
+#
+# Make sure to use the docker-compose.yml of the current release:
+#
+# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+#
+# The compose file on main may not be compatible with the latest release.
+
+# For development see:
+# - https://docs.immich.app/developer/setup
+# - https://docs.immich.app/developer/troubleshooting
+
+name: letso-dev
+
+services:
+  immich-server:
+    container_name: letso
+    command: ['immich-dev']
+    image: letso-dev:latest
+    build:
+      context: ../
+      dockerfile: container/Dockerfile
+      target: dev
+    restart: unless-stopped
+    volumes:
+      - ${UPLOAD_LOCATION}/photos:/data
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    ports:
+      - 2284:2284
