@@ -2,10 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
 import 'package:letso/data.dart';
 import 'package:letso/settings.dart';
+import 'package:letso/utils.dart';
 
 enum ViewType { icon, list }
 
@@ -27,6 +29,27 @@ class FileBrowser extends StatefulWidget {
 
   @override
   State<FileBrowser> createState() => _FileBrowserState();
+}
+
+String formatTime(String mtime) {
+  try {
+    DateTime dt = DateTime.parse(mtime).toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day); // Date only
+    final yesterday = DateTime(now.year, now.month, now.day - 1); // Date only
+    final inputDate = DateTime(dt.year, dt.month, dt.day); // Date only of input
+
+    if (inputDate == today) {
+      return DateFormat('HH:mm').format(dt);
+    } else if (inputDate == yesterday) {
+      return 'Yesterday at ${DateFormat('HH:mm').format(dt)}';
+    } else {
+      // For other dates, format as desired, e.g., "Mon, Oct 2, 2025 at 09:05 PM"
+      return DateFormat('yyyy-mm-dd - HH:mm').format(dt);
+    }
+  } catch (e) {
+    return mtime;
+  }
 }
 
 class _FileBrowserState extends State<FileBrowser> {
@@ -92,15 +115,6 @@ class _FileBrowserState extends State<FileBrowser> {
     return fileName.substring(dotIndex + 1).toUpperCase();
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-
   void _onColumnHeaderTap(SortColumn column) {
     setState(() {
       if (_sortColumn == column) {
@@ -152,6 +166,86 @@ class _FileBrowserState extends State<FileBrowser> {
     return buildInternal(context);
   }
 
+  Widget _buildButton(Widget icon, String label, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: icon,
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        textStyle: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildButtons() {
+    return Row(
+      children: [
+        _buildButton(
+          Transform.rotate(
+            angle: -pi / 2,
+            child: Icon(Icons.subdirectory_arrow_right),
+          ),
+          "Up",
+          () {
+            widget.eventHandlers.onAncestorTap(
+              widget.directory.currentPath.length - 2,
+            );
+          },
+        ),
+        _buildButton(Icon(Icons.upload_file), "File", () {
+          widget.appState.uploadManager.pickAndUploadFiles(
+            widget.directory.currentPath,
+          );
+        }),
+        if (!kIsWeb)
+          _buildButton(Icon(Icons.drive_folder_upload), "Directory", () {
+            widget.appState.uploadManager.uploadDirectory(
+              widget.directory.currentPath,
+            );
+          }),
+        if (!kIsWeb)
+          _buildButton(Icon(Icons.sync), "Sync", () async {
+            var (syncPath, result) = await widget.appState.uploadManager
+                .syncDirectory(widget.directory.currentPath);
+            if (syncPath != null) {
+              var settings = Settings();
+              await settings.load();
+              settings.addSyncPath(syncPath);
+            }
+          }),
+        const Spacer(),
+        ToggleButtons(
+          borderRadius: BorderRadius.circular(4),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+          isSelected: [_viewType == ViewType.icon, _viewType == ViewType.list],
+          onPressed: (int index) {
+            setState(() {
+              _viewType = index == 0 ? ViewType.icon : ViewType.list;
+            });
+          },
+          children: const [
+            Icon(Icons.grid_view, size: 20),
+            Icon(Icons.list, size: 20),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContainer(Widget child) {
+    return Container(
+      padding: const EdgeInsets.all(4.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        ),
+      ),
+      child: child,
+    );
+  }
+
   Widget buildInternal(BuildContext context) {
     List<Widget> ancestors = [];
     for (int i = 0; i < widget.directory.currentPath.length; i++) {
@@ -162,117 +256,28 @@ class _FileBrowserState extends State<FileBrowser> {
             widget.eventHandlers.onAncestorTap(i);
           },
           child: Text(ancestor),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            textStyle: const TextStyle(fontFamily: "FiraMonoNerdFont"),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero, // Makes the button square
+            ),
+          ),
         ),
       );
     }
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(children: ancestors),
-        ),
+        _buildContainer(Row(children: ancestors)),
         // Toolbar
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              ElevatedButton.icon(
-                label: Text('Up'),
-                onPressed: () {
-                  widget.eventHandlers.onAncestorTap(
-                    widget.directory.currentPath.length - 2,
-                  );
-                },
-                icon: Transform.rotate(
-                  angle: -pi / 2,
-                  child: Icon(Icons.subdirectory_arrow_right),
-                ),
-              ),
-              ElevatedButton.icon(
-                label: Text("Upload file"),
-                onPressed: () {
-                  widget.appState.uploadManager.uploadFiles(
-                    widget.directory.currentPath,
-                  );
-                },
-                icon: const Icon(Icons.upload_file),
-              ),
-              if (!kIsWeb)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    widget.appState.uploadManager.uploadDirectory(
-                      widget.directory.currentPath,
-                    );
-                  },
-                  icon: const Icon(Icons.drive_folder_upload),
-                  label: Text("Upload directory"),
-                ),
-              if (!kIsWeb)
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    var (syncPath, result) = await widget.appState.uploadManager
-                        .syncDirectory(widget.directory.currentPath);
-                    if (syncPath != null) {
-                      var settings = Settings();
-                      await settings.load();
-                      settings.addSyncPath(syncPath);
-                    }
-                  },
-                  icon: const Icon(Icons.sync),
-                  label: Text("Sync directory"),
-                ),
-              const Spacer(),
-              ToggleButtons(
-                borderRadius: BorderRadius.circular(4),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
-                isSelected: [
-                  _viewType == ViewType.icon,
-                  _viewType == ViewType.list,
-                ],
-                onPressed: (int index) {
-                  setState(() {
-                    _viewType = index == 0 ? ViewType.icon : ViewType.list;
-                  });
-                },
-                children: const [
-                  Icon(Icons.grid_view, size: 20),
-                  Icon(Icons.list, size: 20),
-                ],
-              ),
-            ],
-          ),
-        ),
+        _buildContainer(_buildButtons()),
         // Content
         Expanded(
           child: _viewType == ViewType.icon
               ? _buildIconView()
               : _buildListView(),
-        ),
-        Row(
-          children: [
-            Text(
-              '${_sortedItems.length} items',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
         ),
       ],
     );
@@ -414,20 +419,23 @@ class _FileBrowserState extends State<FileBrowser> {
       Expanded(
         flex: 1,
         child: Text(
-          item.isDirectory ? '--' : _formatSize(item.size),
+          item.isDirectory ? '--' : formatBytes(item.size),
           style: const TextStyle(fontSize: 12),
         ),
       ),
       Expanded(
         flex: 1,
         child: Text(
-          item.isDirectory ? 'Directory' : _getFileExtension(item.name),
+          item.isDirectory ? 'Dir' : _getFileExtension(item.name),
           style: const TextStyle(fontSize: 12),
         ),
       ),
       Expanded(
         flex: 2,
-        child: Text(item.mtime, style: const TextStyle(fontSize: 12)),
+        child: Text(
+          formatTime(item.mtime),
+          style: const TextStyle(fontSize: 12),
+        ),
       ),
     ];
   }

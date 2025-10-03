@@ -6,6 +6,7 @@ import 'package:letso/browser_container.dart';
 import 'package:letso/log_viewer.dart';
 import 'package:letso/preferences.dart';
 import 'package:letso/settings_page.dart';
+import 'package:letso/status_bar.dart';
 import 'package:letso/upload_manager.dart';
 
 // This is the main entry point for the Flutter application.
@@ -60,6 +61,47 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  Widget _buildMainContent(
+    BuildContext context,
+    AsyncSnapshot<Preferences> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: Column(
+          children: [Text("loading preferences"), CircularProgressIndicator()],
+        ),
+      );
+    } else if (snapshot.hasError) {
+      return Center(child: Text('Error: ${snapshot.error}'));
+    } else if (snapshot.hasData) {
+      Preferences preferences = snapshot.data as Preferences;
+      Api api = Api.create(preferences);
+      AppState appState = AppState(
+        preferences: preferences,
+        api: api,
+        uploadManager: UploadManager(api: api),
+      );
+      if (preferences.isConfigured()) {
+        return Column(
+          children: [
+            Expanded(child: BrowserContainer(appState: appState)),
+            StatusBar(appState: appState),
+          ],
+        );
+      } else {
+        return Scaffold(
+          body: SettingsPage(
+            onChange: () {
+              setState(() {});
+            },
+          ),
+        );
+      }
+    } else {
+      return const Center(child: Text('No preferences found'));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,42 +120,7 @@ class _MyAppState extends State<MyApp> {
       ),
       body: FutureBuilder(
         future: Preferences.loadPreferences(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                children: [
-                  Text("loading preferences"),
-                  CircularProgressIndicator(),
-                ],
-              ),
-            );
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (snapshot.hasData) {
-            Preferences preferences = snapshot.data as Preferences;
-            Api api = Api.create(preferences);
-            AppState appState = AppState(
-              preferences: preferences,
-              api: api,
-              uploadManager: UploadManager(api: api),
-            );
-            if (preferences.isConfigured()) {
-              return BrowserContainer(appState: appState);
-            } else {
-              return Scaffold(
-                body: SettingsPage(
-                  onChange: () {
-                    setState(() {});
-                  },
-                ),
-              );
-              // return const Center(child: Text('No preferences found'));
-            }
-          } else {
-            return const Center(child: Text('No preferences found'));
-          }
-        },
+        builder: _buildMainContent,
       ),
     );
   }

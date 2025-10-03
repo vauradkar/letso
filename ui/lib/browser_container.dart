@@ -78,8 +78,12 @@ class _BrowserContainerState extends State<BrowserContainer> {
             onItemDoubleTap: _onItemDoubleTap,
             onAncestorTap: _onAncestorTap,
           );
+          final directory = snapshot.data!.orNull()!;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.appState.updateItemsCount(directory.items.length);
+          });
           return FileBrowser(
-            directory: snapshot.data!.orNull()!,
+            directory: directory,
             eventHandlers: eventHandlers,
             appState: widget.appState,
           );
