@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use clap::Parser;
+use env_logger::Env;
 use log::info;
 use poem::EndpointExt;
 use poem::Route;
@@ -29,7 +30,8 @@ static DOCS_ROOT: &str = "/docs";
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    let env = Env::new().filter("LETSO_LOG");
+    env_logger::init_from_env(env);
     let args = Args::parse();
     let config = AppState::try_from(&args).expect("Invalid configuration");
 
