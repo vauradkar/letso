@@ -255,7 +255,6 @@ class _FileBrowserState extends State<FileBrowser> {
           onPressed: () {
             widget.eventHandlers.onAncestorTap(i);
           },
-          child: Text(ancestor),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             textStyle: const TextStyle(fontFamily: "FiraMonoNerdFont"),
@@ -265,6 +264,7 @@ class _FileBrowserState extends State<FileBrowser> {
               borderRadius: BorderRadius.zero, // Makes the button square
             ),
           ),
+          child: Text(ancestor),
         ),
       );
     }

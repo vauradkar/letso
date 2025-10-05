@@ -45,11 +45,11 @@ class FixedSizeStringBuffer {
   int get length => currentCapacity;
 }
 
-class TeeOutput extends LogOutput implements AbstractLogOutput {
+class PlatformLogOutput extends LogOutput implements AbstractLogOutput {
   final LogOutput _consoleOutput = ConsoleOutput();
   final FixedSizeStringBuffer _buffer;
 
-  TeeOutput(int logSize) : _buffer = FixedSizeStringBuffer(logSize);
+  PlatformLogOutput(int logSize) : _buffer = FixedSizeStringBuffer(logSize);
 
   @override
   void output(OutputEvent event) {
