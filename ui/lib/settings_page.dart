@@ -101,7 +101,7 @@ class SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Widget buildDecoration(Widget child) {
+  Widget buildDecoration(String title, Widget child) {
     return Card(
       elevation: 8,
       margin: const EdgeInsets.all(16),
@@ -118,7 +118,7 @@ class SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(),
+            _buildHeader(title),
             Expanded(child: child),
           ],
         ),
@@ -126,7 +126,7 @@ class SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String title) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -145,7 +145,7 @@ class SettingsPageState extends State<SettingsPage> {
           Icon(Icons.table_view_rounded, color: Colors.white, size: 28),
           const SizedBox(width: 12),
           Text(
-            'Data Management',
+            title,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -178,8 +178,12 @@ class SettingsPageState extends State<SettingsPage> {
           builder: (context, snapshot) {
             return TabBarView(
               children: [
-                buildDecoration(buildServerSettings(context, snapshot)),
                 buildDecoration(
+                  "Server Settings",
+                  buildServerSettings(context, snapshot),
+                ),
+                buildDecoration(
+                  "Synced Directories",
                   SyncedDirectorySetting(
                     dataFuture: _settings.syncPaths,
                     onActionPressed: _updateSyncPath,
