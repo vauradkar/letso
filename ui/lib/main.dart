@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:letso/api.dart';
+import 'package:letso/licenses_widget.dart';
 import 'package:letso/logger_manager.dart';
 import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
@@ -115,6 +116,15 @@ class _MyAppState extends State<MyApp> {
           IconButton(
             onPressed: () => showSettingsPage(context),
             icon: Icon(Icons.settings),
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LicencesWidget()),
+              );
+            },
+            icon: const Icon(Icons.info_outline),
           ),
         ],
       ),

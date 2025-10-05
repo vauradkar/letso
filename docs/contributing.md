@@ -13,3 +13,11 @@ You can build the container from root of project directory with
 ```shell
 docker build --progress=plain --no-cache -t letso:latest -f container/Dockerfile .
 ```
+
+## Generating licences information for new dependecies
+
+Run the following command which will generate `lib/oss_licenses.dart` and commit that file.
+
+```shell
+flutter pub run flutter_oss_licenses:generate.dart
+```
