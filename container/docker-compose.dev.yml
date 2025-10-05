@@ -1,22 +1,21 @@
 #
-# WARNING: To install Immich, follow our guide: https://docs.immich.app/install/docker-compose
+# WARNING: To install letso, follow our guide: https://github.com/vauradkar/letso/blob/main/README.md
 #
 # Make sure to use the docker-compose.yml of the current release:
 #
-# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+# https://github.com/vauradkar/letso/blob/release/container/docker-compose.yml
 #
 # The compose file on main may not be compatible with the latest release.
 
 # For development see:
-# - https://docs.immich.app/developer/setup
-# - https://docs.immich.app/developer/troubleshooting
+# - https://github.com/vauradkar/letso/blob/release/docs/contributing.md
 
 name: letso-dev
 
 services:
-  immich-server:
+  letso-server:
     container_name: letso
-    command: ['immich-dev']
+    command: [ 'letso-dev' ]
     image: letso-dev:latest
     build:
       context: ../
