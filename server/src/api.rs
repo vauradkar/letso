@@ -93,6 +93,6 @@ impl Api {
 
         Ok(Attachment::new(file_data)
             .attachment_type(AttachmentType::Attachment)
-            .filename(path.0.basename().unwrap_or(&"downloaded_file".to_string())))
+            .filename(path.0.basename().unwrap_or("downloaded_file")))
     }
 }

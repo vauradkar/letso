@@ -112,14 +112,12 @@ where
             let s = comp.as_ref();
             if s.contains('/') || s.contains('\\') {
                 return Err(Error::InvalidArgument(format!(
-                    "Invalid path component: {}",
-                    s
+                    "Invalid path component: {s}"
                 )));
             }
-            if s == "." || s == ".." || s == "" {
+            if s == "." || s == ".." || s.is_empty() {
                 return Err(Error::InvalidArgument(format!(
-                    "Invalid path component: {}",
-                    s
+                    "Invalid path component: {s}"
                 )));
             }
             c.push(s.to_string());
