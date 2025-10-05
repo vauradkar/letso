@@ -19,7 +19,7 @@ jobs:
           repository: my_gh_org/my_gh_repo
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
-          # token: ${{ steps.generate-token.outputs.token }}
+          token: ${{ secrets.LETS_RELEASE_ASSETS }}
           files: |
             container/docker-compose.yml
             container/example.env
