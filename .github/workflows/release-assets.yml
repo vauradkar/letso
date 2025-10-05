@@ -8,21 +8,6 @@ on:
       - release
 
 jobs:
-  # Upload config files for Docker setup
-  build-config-files:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Upload docker compose file
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-compose.yml
-          path: container/docker-compose.yml
-      - name: Upload docker env file
-        uses: actions/upload-artifact@v4
-        with:
-          name: example.env
-          path: container/example.env
-
   # Build macOS app
   build-macos:
     runs-on: macos-latest
@@ -181,16 +166,25 @@ jobs:
 
   # Create GitHub Release and publish all artifacts
   create-release:
-    needs: [build-config-files, build-macos, build-linux, build-android, build-ios]
+    needs: [build-macos, build-linux, build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+      
+      - name: Copy container files
+        run: |
+          mkdir -p ./artifacts/container-files
+          cp container/example.env ./artifacts/container-files/
+          cp container/docker-compose.yml ./artifacts/container-files/
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -200,8 +194,7 @@ jobs:
             ./artifacts/linux-${{ github.ref_name }}/*
             ./artifacts/android-${{ github.ref_name }}/*
             ./artifacts/ios-${{ github.ref_name }}/*
-            ./artifacts/docker-compose.yml
-            ./artifacts/example.env
+            ./artifacts/container-files/*
           draft: false
           prerelease: false
           generate_release_notes: true
