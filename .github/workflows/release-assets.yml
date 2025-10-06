@@ -4,8 +4,9 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - release
+
+env:
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # Build macOS app
@@ -40,14 +41,14 @@ jobs:
             --window-size 800 400 \
             --icon-size 100 \
             --app-drop-link 600 185 \
-            "app-${{ github.ref_name }}-macos.dmg" \
+            "${{ env.IMAGE_NAME }}-${{ github.ref_name }}-macos.dmg" \
             "build/macos/Build/Products/Release/"
       
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-${{ github.ref_name }}
-          path: ui/app-${{ github.ref_name }}-macos.dmg
+          path: ui/${{ env.IMAGE_NAME }}-${{ github.ref_name }}-macos.dmg
 
   # Build Linux app
   build-linux:
@@ -80,13 +81,13 @@ jobs:
       - name: Create tarball
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../app-${{ github.ref_name }}-linux-x64.tar.gz *
+          tar -czf ../../../../../${{ env.IMAGE_NAME }}-${{ github.ref_name }}-linux-x64.tar.gz *
       
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ github.ref_name }}
-          path: ui/app-${{ github.ref_name }}-linux-x64.tar.gz
+          path: ui/${{ env.IMAGE_NAME }}-${{ github.ref_name }}-linux-x64.tar.gz
 
   # Build Android APK
   build-android:
@@ -120,13 +121,13 @@ jobs:
       - name: Rename APK
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/app-${{ github.ref_name }}.apk
+             build/app/outputs/flutter-apk/${{ env.IMAGE_NAME }}-${{ github.ref_name }}.apk
       
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ github.ref_name }}
-          path: ui/build/app/outputs/flutter-apk/app-${{ github.ref_name }}.apk
+          path: ui/build/app/outputs/flutter-apk/${{ env.IMAGE_NAME }}-${{ github.ref_name }}.apk
 
   # Build iOS app
   build-ios:
@@ -156,13 +157,13 @@ jobs:
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -r ../../../app-${{ github.ref_name }}-ios-unsigned.ipa Payload
+          zip -r ../../../${{ env.IMAGE_NAME }}-${{ github.ref_name }}-ios-unsigned.ipa Payload
       
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-${{ github.ref_name }}
-          path: ui/app-${{ github.ref_name }}-ios-unsigned.ipa
+          path: ui/${{ env.IMAGE_NAME }}-${{ github.ref_name }}-ios-unsigned.ipa
 
   # Create GitHub Release and publish all artifacts
   create-release:
