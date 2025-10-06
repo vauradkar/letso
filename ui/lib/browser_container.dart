@@ -28,6 +28,14 @@ class BrowserContainer extends StatefulWidget {
 class _BrowserContainerState extends State<BrowserContainer> {
   PortablePath currentDirectory = PortablePath(components: ["/"]);
 
+  @override
+  void initState() {
+    super.initState();
+    widget.appState.registerListener(() {
+      setState(() {});
+    });
+  }
+
   void _onItemTap(DirectoryEntry item) {
     logger.d('Item tapped: ${item.name}');
     if (item.isDirectory) {

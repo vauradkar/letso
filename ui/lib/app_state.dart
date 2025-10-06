@@ -62,7 +62,10 @@ class AppState {
     debugPrint(
       'Updating items count: $count with ${_browserListeners.length} listeners',
     );
+    final oldCount = statusInfo.totalItems;
     statusInfo.totalItems = count;
-    notifyListeners();
+    if (oldCount != count) {
+      notifyListeners();
+    }
   }
 }

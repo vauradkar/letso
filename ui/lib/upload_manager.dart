@@ -33,30 +33,49 @@ class UploadManager {
   void unregisterListener(Function listener) =>
       _syncStatus.unregisterListener(listener);
 
-  Future<void> uploadFile(final PortablePath dest) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      withData: true,
-    );
-    if (result != null) {
-      api.uploadFile(result.files.first, dest);
-    } else {
-      logger.d('upload cancelled to $dest');
-    }
-  }
-
-  Future<void> pickAndUploadFiles(final PortablePath dest) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true,
-    );
-
-    if (result == null) {
+  Future<void> _uploadPlatformFiles(
+    final FilePickerResult? result,
+    final PortablePath dest,
+  ) async {
+    if (result == null || result.files.isEmpty) {
       logger.d('No files selected for upload');
       return;
     }
-    for (var file in result.files) {
-      await api.uploadFile(file, dest);
+
+    final List<PlatformFile> files = result.files;
+
+    for (var file in files) {
+      if (file.bytes == null) {
+        logger.w('File ${file.name} has no data, skipping upload');
+        continue;
+      }
+      _syncStatus.addFile(file.size);
     }
+
+    for (var file in files) {
+      if (file.bytes == null) {
+        logger.w('File ${file.name} has no data, skipping upload');
+        continue;
+      }
+      logger.d('Uploading file: ${file.name} to $dest');
+      await api.uploadFile(file, dest);
+      _syncStatus.removeFile(file.size);
+      await Future.delayed(const Duration(seconds: 1));
+    }
+  }
+
+  Future<void> uploadFile(final PortablePath dest) async {
+    await _uploadPlatformFiles(
+      await FilePicker.platform.pickFiles(withData: true),
+      dest,
+    );
+  }
+
+  Future<void> pickAndUploadFiles(final PortablePath dest) async {
+    await _uploadPlatformFiles(
+      await FilePicker.platform.pickFiles(allowMultiple: true, withData: true),
+      dest,
+    );
   }
 
   Future<List<io.FileSystemEntity>> getFilesInDirectoryRecursively(
