@@ -49,7 +49,7 @@ class _BrowserContainerState extends State<BrowserContainer> {
     if (index < 0) {
       return;
     }
-    if (index >= currentDirectory.length - 1) {
+    if (index > currentDirectory.length - 1) {
       // If the last item is tapped, do nothing.
       return;
     }
