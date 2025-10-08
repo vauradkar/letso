@@ -55,7 +55,7 @@ class _MyAppState extends State<MyApp> {
         builder: (context) => LogViewer(
           logMessages: logger.getLogs(),
           onClear: () {
-            debugPrint('Clear logs not implemented');
+            logger.clear();
           },
         ),
       ),

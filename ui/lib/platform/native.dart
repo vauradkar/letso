@@ -14,14 +14,12 @@ class PlatformLogOutput implements AbstractLogOutput {
 
   @override
   Future<void> clear() async {
-    debugPrint('Clearing log file: ${file.path}');
     file.writeAsStringSync('');
   }
 
   @override
   Future<void> init() async {
     final directory = await getApplicationDocumentsDirectory();
-    debugPrint('Log directory: ${directory.path}');
     file = File('${directory.path}/app.log');
     if (!await file.exists()) {
       await file.create(recursive: true);

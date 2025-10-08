@@ -53,27 +53,29 @@ class UploadManager {
     }
 
     for (var file in files) {
-      if (file.bytes == null) {
+      late Uint8List bytes;
+      if (kIsWeb && file.bytes == null) {
         logger.w('File ${file.name} has no data, skipping upload');
         continue;
+      } else if (file.bytes == null) {
+        bytes = await io.File(file.path!).readAsBytes();
+      } else {
+        bytes = file.bytes!;
       }
       logger.d('Uploading file: ${file.name} to $dest');
-      await api.uploadFile(file, dest);
+      await api.uploadFile(file, dest, bytes);
       _syncStatus.removeFile(file.size);
       await Future.delayed(const Duration(seconds: 1));
     }
   }
 
   Future<void> uploadFile(final PortablePath dest) async {
-    await _uploadPlatformFiles(
-      await FilePicker.platform.pickFiles(withData: true),
-      dest,
-    );
+    await _uploadPlatformFiles(await FilePicker.platform.pickFiles(), dest);
   }
 
   Future<void> pickAndUploadFiles(final PortablePath dest) async {
     await _uploadPlatformFiles(
-      await FilePicker.platform.pickFiles(allowMultiple: true, withData: true),
+      await FilePicker.platform.pickFiles(allowMultiple: true),
       dest,
     );
   }
@@ -96,7 +98,9 @@ class UploadManager {
     UploadResults results = UploadResults();
     logger.d('Selected directory: $directory');
     final files = await getFilesInDirectoryRecursively(directory);
+    logger.d('Found ${files.length} files in directory $directory');
     for (var file in files) {
+      logger.d('Found file: ${file.path} to upload to $dest');
       var bytes = (await file.stat()).size;
       _syncStatus.addFile(bytes);
     }
@@ -114,15 +118,13 @@ class UploadManager {
         size: bytes.length,
         bytes: bytes,
       );
-      api.uploadFile(platformFile, destDir);
+      api.uploadFile(platformFile, destDir, bytes);
 
       results.successCount += 1;
       _syncStatus.removeFile(bytes.length);
       await Future.delayed(const Duration(seconds: 1));
     }
-    // Implement the logic to upload all files in the directory.
     logger.d('Uploading directory: $directory to $dest');
-    // You might want to list all files in the directory and call uploadFile for each.
     return results;
   }
 

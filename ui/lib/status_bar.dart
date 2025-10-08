@@ -35,11 +35,9 @@ class _StatusBarState extends State<StatusBar> {
   @override
   void initState() {
     super.initState();
-    debugPrint('StatusBar initState called');
     widget.appState.registerListener(() {
       setState(() {});
     });
-    debugPrint('StatusBar listener registered');
   }
 
   @override

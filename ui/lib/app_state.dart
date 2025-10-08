@@ -59,9 +59,6 @@ class AppState {
   }
 
   void updateItemsCount(int count) {
-    debugPrint(
-      'Updating items count: $count with ${_browserListeners.length} listeners',
-    );
     final oldCount = statusInfo.totalItems;
     statusInfo.totalItems = count;
     if (oldCount != count) {

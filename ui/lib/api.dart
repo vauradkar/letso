@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dart_either/dart_either.dart';
 import 'package:file_picker/file_picker.dart';
@@ -29,6 +30,7 @@ class Api {
   Future<Either<String, Null>> uploadFile(
     PlatformFile file,
     PortablePath destDirectory,
+    Uint8List bytes,
   ) async {
     final url = getUri(_settings, "/api/upload/file");
     var request = MultipartRequest('POST', url);
@@ -37,7 +39,7 @@ class Api {
       "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE, HEAD",
     });
     request.files.add(
-      MultipartFile.fromBytes('file', file.bytes!, filename: file.name),
+      MultipartFile.fromBytes('file', bytes, filename: file.name),
     );
     request.fields['description'] = "test file upload";
 
