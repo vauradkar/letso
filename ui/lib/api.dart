@@ -6,23 +6,31 @@ import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
 import 'package:letso/logger_manager.dart';
 import 'package:letso/data.dart';
-import 'package:letso/platform.dart';
-import 'package:letso/preferences.dart';
+import 'package:letso/settings.dart';
+
+Uri getUri(Settings settings, String path) {
+  if (settings.serverAddress.isEmpty) {
+    throw Exception('Server address or port is not configured.');
+  }
+  final Uri baseUrl = Uri.parse(settings.serverAddress);
+  final Uri uriPath = Uri.parse(path);
+  return baseUrl.resolveUri(uriPath);
+}
 
 class Api {
-  final Preferences _preferences;
+  final Settings _settings;
 
-  factory Api.create(Preferences preferences) {
-    return Api(preferences);
+  factory Api.create(Settings settings) {
+    return Api(settings);
   }
 
-  Api(this._preferences);
+  Api(this._settings);
 
   Future<Either<String, Null>> uploadFile(
     PlatformFile file,
     PortablePath destDirectory,
   ) async {
-    final url = Platform.getUri(_preferences, "/api/upload/file");
+    final url = getUri(_settings, "/api/upload/file");
     var request = MultipartRequest('POST', url);
     request.headers.addAll({
       "Access-Control-Allow-Origin": "*",
@@ -57,7 +65,7 @@ class Api {
   ) async {
     // await Future.delayed(const Duration(seconds: 1));
 
-    final uri = Platform.getUri(_preferences, '/api/browse/path');
+    final uri = getUri(_settings, '/api/browse/path');
 
     // final response = await http.get(uri);
     logger.i(

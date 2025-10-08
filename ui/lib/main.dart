@@ -5,7 +5,7 @@ import 'package:letso/logger_manager.dart';
 import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
 import 'package:letso/log_viewer.dart';
-import 'package:letso/preferences.dart';
+import 'package:letso/settings.dart';
 import 'package:letso/settings_page.dart';
 import 'package:letso/status_bar.dart';
 import 'package:letso/upload_manager.dart';
@@ -64,7 +64,7 @@ class _MyAppState extends State<MyApp> {
 
   Widget _buildMainContent(
     BuildContext context,
-    AsyncSnapshot<Preferences> snapshot,
+    AsyncSnapshot<Settings> snapshot,
   ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(
@@ -75,14 +75,14 @@ class _MyAppState extends State<MyApp> {
     } else if (snapshot.hasError) {
       return Center(child: Text('Error: ${snapshot.error}'));
     } else if (snapshot.hasData) {
-      Preferences preferences = snapshot.data as Preferences;
-      Api api = Api.create(preferences);
+      Settings settings = snapshot.data as Settings;
+      Api api = Api.create(settings);
       AppState appState = AppState(
-        preferences: preferences,
+        settings: settings,
         api: api,
         uploadManager: UploadManager(api: api),
       );
-      if (preferences.isConfigured()) {
+      if (settings.isConfigured()) {
         return Column(
           children: [
             Expanded(child: BrowserContainer(appState: appState)),
@@ -129,7 +129,7 @@ class _MyAppState extends State<MyApp> {
         ],
       ),
       body: FutureBuilder(
-        future: Preferences.loadPreferences(),
+        future: Settings.loadSettings(),
         builder: _buildMainContent,
       ),
     );

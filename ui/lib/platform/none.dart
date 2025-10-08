@@ -1,10 +1,5 @@
 import 'package:letso/logger_manager.dart';
-import 'package:letso/preferences.dart';
 import 'package:logger/logger.dart';
-
-Uri getUri(Preferences preferences, String path) {
-  return Uri.parse('http://localhost/$path');
-}
 
 class PlatformLogOutput implements AbstractLogOutput {
   int logSize;
@@ -26,4 +21,8 @@ class PlatformLogOutput implements AbstractLogOutput {
   Future<String> getLogs() async {
     return '';
   }
+}
+
+Future<String> loadServerAddress() async {
+  return "";
 }

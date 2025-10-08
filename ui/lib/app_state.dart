@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:letso/api.dart';
-import 'package:letso/preferences.dart';
+import 'package:letso/settings.dart';
 import 'package:letso/upload_manager.dart';
 
 /// Status information model for the StatusBar widget
@@ -11,14 +11,14 @@ class StatusInfo {
 }
 
 class AppState {
-  final Preferences preferences;
+  final Settings settings;
   final Api api;
   final UploadManager uploadManager;
   final StatusInfo statusInfo = StatusInfo(totalItems: 0);
   final List<Function> _browserListeners = [];
 
   AppState({
-    required this.preferences,
+    required this.settings,
     required this.api,
     required this.uploadManager,
   });

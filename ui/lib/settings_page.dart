@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:letso/data.dart';
 import 'package:letso/logger_manager.dart';
@@ -18,7 +19,6 @@ class SettingsPageState extends State<SettingsPage> {
   // Controllers for the text input fields.
   final TextEditingController _serverAddressController =
       TextEditingController();
-  final TextEditingController _serverPortController = TextEditingController();
 
   // State variables for managing the UI.
   final List<String> _logOutput = [];
@@ -35,14 +35,12 @@ class SettingsPageState extends State<SettingsPage> {
     await _settings.load();
 
     _serverAddressController.text = _settings.serverAddress;
-    _serverPortController.text = _settings.serverPort;
   }
 
   // Asynchronously saves the server address and port to SharedPreferencesAsync.
   Future<void> _saveSettings() async {
     setState(() {
       _settings.serverAddress = _serverAddressController.text;
-      _settings.serverPort = _serverPortController.text;
 
       _logOutput.add('Settings saved successfully.');
     });
@@ -63,22 +61,7 @@ class SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSettingsForm(),
-            const SizedBox(height: 20),
-            const Text(
-              'Log Output:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            // Display the log messages.
-            ..._logOutput.map(
-              (log) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(log),
-              ),
-            ),
-          ],
+          children: [_buildSettingsForm()],
         ),
       );
     }
@@ -160,37 +143,43 @@ class SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> tabs = [];
+    if (!kIsWeb) {
+      tabs.add(const Tab(icon: Icon(Icons.backup)));
+    }
+    tabs.add(const Tab(icon: Icon(Icons.sync)));
     return DefaultTabController(
-      length: 2,
+      length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: Text('Settings'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.backup)),
-              Tab(icon: Icon(Icons.sync)),
-            ],
-          ),
+          bottom: TabBar(tabs: tabs),
         ),
 
         body: FutureBuilder<void>(
           future: _loadSettings(),
           builder: (context, snapshot) {
-            return TabBarView(
-              children: [
+            List<Widget> tabViews = [];
+
+            if (!kIsWeb) {
+              tabViews.add(
                 buildDecoration(
                   "Server Settings",
                   buildServerSettings(context, snapshot),
                 ),
-                buildDecoration(
-                  "Synced Directories",
-                  SyncedDirectorySetting(
-                    dataFuture: _settings.syncPaths,
-                    onActionPressed: _updateSyncPath,
-                  ),
+              );
+            }
+            tabViews.add(
+              buildDecoration(
+                "Synced Directories",
+                SyncedDirectorySetting(
+                  dataFuture: _settings.syncPaths,
+                  onActionPressed: _updateSyncPath,
                 ),
-              ],
+              ),
             );
+
+            return TabBarView(children: tabViews);
           },
         ),
       ),
@@ -202,31 +191,104 @@ class SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Please enter server details:',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _serverAddressController,
-          decoration: const InputDecoration(
-            labelText: 'Server Address',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _serverPortController,
-          decoration: const InputDecoration(
-            labelText: 'Server Port',
-            border: OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
-        ),
         const SizedBox(height: 20),
+        UrlInputWidget(
+          serverAddressController: _serverAddressController,
+          onSave: _saveSettings,
+        ),
+      ],
+    );
+  }
+}
+
+class UrlInputWidget extends StatefulWidget {
+  final TextEditingController serverAddressController;
+  final VoidCallback onSave;
+
+  const UrlInputWidget({
+    super.key,
+    required this.serverAddressController,
+    required this.onSave,
+  });
+
+  @override
+  State<UrlInputWidget> createState() => _UrlInputWidgetState();
+}
+
+class _UrlInputWidgetState extends State<UrlInputWidget> {
+  bool _isValidUrl = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.serverAddressController.addListener(_validateUrl);
+  }
+
+  @override
+  void dispose() {
+    widget.serverAddressController.removeListener(_validateUrl);
+    super.dispose();
+  }
+
+  void _validateUrl() {
+    final text = widget.serverAddressController.text;
+
+    if (text.isEmpty) {
+      setState(() {
+        _isValidUrl = false;
+        _errorText = null;
+      });
+      return;
+    }
+
+    bool isValid = false;
+
+    try {
+      final uri = Uri.parse(text);
+
+      // Check if scheme is http or https
+      if (uri.scheme == 'http' || uri.scheme == 'https') {
+        // Check if host is not empty
+        if (uri.host.isNotEmpty) {
+          // If port is specified, validate it
+          if (uri.hasPort) {
+            isValid = uri.port >= 1 && uri.port <= 65535;
+          } else {
+            isValid = true;
+          }
+        }
+      }
+    } catch (e) {
+      isValid = false;
+    }
+
+    setState(() {
+      _isValidUrl = isValid;
+      _errorText = isValid ? null : 'Please enter a valid URL';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: widget.serverAddressController,
+          decoration: InputDecoration(
+            labelText: 'Server Address',
+            hintText: 'https://example.com:port',
+            errorText: _errorText,
+            prefixIcon: Icon(Icons.link),
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.url,
+        ),
+        SizedBox(height: 16),
         ElevatedButton(
-          onPressed: _saveSettings,
-          child: const Text('Save Settings'),
+          onPressed: _isValidUrl ? widget.onSave : null,
+          child: Text('Save'),
         ),
       ],
     );

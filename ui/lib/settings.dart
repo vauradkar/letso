@@ -1,28 +1,38 @@
 import 'dart:convert';
 import 'package:letso/data.dart';
+import 'package:letso/platform.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Settings {
   String serverAddress = '';
-  String serverPort = '';
   List<SyncPath> syncPaths = [];
 
   Settings();
 
   Future<void> load() async {
-    final prefs = SharedPreferencesAsync();
-    serverAddress = await prefs.getString('serverAddress') ?? '';
-    serverPort = await prefs.getString('serverPort') ?? '';
+    serverAddress = await Platform.loadServerAddress();
     syncPaths =
-        (json.decode(await prefs.getString('syncPaths') ?? '[]') as List)
+        (json.decode(
+                  await SharedPreferencesAsync().getString('syncPaths') ?? '[]',
+                )
+                as List)
             .map((e) => SyncPath.fromJson(e))
             .toList();
+  }
+
+  static Future<Settings> loadSettings() async {
+    final settings = Settings();
+    await settings.load();
+    return settings;
+  }
+
+  bool isConfigured() {
+    return serverAddress.isNotEmpty;
   }
 
   Future<void> save() async {
     final prefs = SharedPreferencesAsync();
     await prefs.setString('serverAddress', serverAddress);
-    await prefs.setString('serverPort', serverPort);
     await prefs.setString(
       'syncPaths',
       json.encode(syncPaths.map((e) => e.toJson()).toList()),

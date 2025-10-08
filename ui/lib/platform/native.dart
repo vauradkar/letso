@@ -1,20 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:letso/logger_manager.dart';
-import 'package:letso/preferences.dart';
 import 'package:logger/logger.dart';
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
-
-Uri getUri(Preferences preferences, String path) {
-  if (preferences.serverAddress == null || preferences.serverPort == null) {
-    throw Exception('Server address or port is not configured.');
-  }
-  return Uri.http(
-    '${preferences.serverAddress}:${preferences.serverPort}',
-    path,
-  );
-}
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PlatformLogOutput implements AbstractLogOutput {
   late File file;
@@ -59,4 +49,9 @@ class PlatformLogOutput implements AbstractLogOutput {
       return '';
     }
   }
+}
+
+Future<String> loadServerAddress() async {
+  final SharedPreferencesAsync prefs = SharedPreferencesAsync();
+  return await prefs.getString('serverAddress') ?? '';
 }

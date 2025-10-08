@@ -2,19 +2,8 @@ import 'dart:collection';
 
 import 'package:flutter/cupertino.dart';
 import 'package:letso/logger_manager.dart';
-import 'package:letso/preferences.dart';
 import 'package:logger/logger.dart';
 import 'package:web/web.dart' as web;
-
-Uri getUri(Preferences preferences, String path) {
-  String currentUrl = web.window.location.href;
-  Uri uri = Uri.parse(currentUrl);
-  String origin = uri.authority;
-  // int port = uri.port;
-  logger.d('Current URL: $origin');
-
-  return Uri.http(origin, path);
-}
 
 class FixedSizeStringBuffer {
   final int capacity;
@@ -74,4 +63,10 @@ class PlatformLogOutput extends LogOutput implements AbstractLogOutput {
   Future<String> getLogs() async {
     return _buffer.toString();
   }
+}
+
+Future<String> loadServerAddress() async {
+  final currentUrl = web.window.location.href;
+  logger.d('Current url: $currentUrl');
+  return currentUrl;
 }
