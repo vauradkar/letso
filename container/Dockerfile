@@ -1,5 +1,5 @@
 # Use official Rust image to build the backend
-FROM rust:1.90 as backend-builder
+FROM rust:1.90 AS backend-builder
 
 WORKDIR /app
 COPY . .
@@ -11,7 +11,7 @@ COPY . .
 RUN cargo build --release
 
 # Use official Flutter image to build the frontend
-FROM ghcr.io/cirruslabs/flutter:stable as frontend-builder
+FROM ghcr.io/cirruslabs/flutter:stable AS frontend-builder
 
 WORKDIR /app/
 COPY ./ui .
