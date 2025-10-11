@@ -10,7 +10,7 @@ on:
 # builds.
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.event.repository.name }}
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push-image:
