@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:letso/api.dart';
 import 'package:letso/settings.dart';
 import 'package:letso/upload_manager.dart';

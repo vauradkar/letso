@@ -1,0 +1,29 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="100%" height="100%" fill="#ffffffff"/>
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#4A90E2" opacity="0.1"/>
+  
+
+  <g transform="translate(-50, -40) scale(1.4)">
+    <!-- Cloud shape -->
+  <path d="M 140 95 C 140 85 132 77 122 77 C 121 67 112 60 101 60 C 88 60 77 71 77 84 C 77 85 77 86 77 87 C 69 89 63 96 63 105 C 63 115 71 123 81 123 L 135 123 C 143 123 150 116 150 108 C 150 101 145 95 140 95 Z" 
+        fill="#4A90E2" 
+        stroke="#2C5F8D" 
+        stroke-width="2"/>
+  
+  <!-- Arrow pointing up (backup symbol) -->
+  <g transform="translate(100, 130)">
+    <!-- Arrow shaft -->
+    <rect x="-5" y="-15" width="10" height="35" fill="#2C5F8D" rx="2"/>
+    
+    <!-- Arrow head -->
+    <path d="M 0 -20 L -15 -5 L -7 -5 L -7 0 L 7 0 L 7 -5 L 15 -5 Z" 
+          fill="#2C5F8D"/>
+  </g>
+  <!-- Subtle data dots rising into cloud -->
+  <circle cx="85" cy="135" r="2.5" fill="#4A90E2" opacity="0.6"/>
+  <circle cx="100" cy="140" r="2.5" fill="#4A90E2" opacity="0.5"/>
+  <circle cx="115" cy="135" r="2.5" fill="#4A90E2" opacity="0.6"/>
+  </g>
+  
+</svg>
