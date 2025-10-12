@@ -26,22 +26,16 @@ class AppInfoWidget extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                child: Text("API: $apiVersion", textAlign: TextAlign.center),
+              ),
+              Expanded(
                 child: Text(
-                  "API Version: $apiVersion",
+                  "Server: $serverVersion",
                   textAlign: TextAlign.center,
                 ),
               ),
               Expanded(
-                child: Text(
-                  "Server Version: $serverVersion",
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  "App Version: $appVersion",
-                  textAlign: TextAlign.center,
-                ),
+                child: Text("App: $appVersion", textAlign: TextAlign.center),
               ),
             ],
           ),
