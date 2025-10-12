@@ -27,6 +27,26 @@ class Api {
 
   Api(this._settings);
 
+  Future<String> getApiVersion() async {
+    final url = getUri(_settings, "/api/api_version");
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      return response.body;
+    } else {
+      throw Exception('Failed to load API version');
+    }
+  }
+
+  Future<String> getServerVersion() async {
+    final url = getUri(_settings, "/api/server_version");
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      return response.body;
+    } else {
+      throw Exception('Failed to load server version');
+    }
+  }
+
   Future<Either<String, Null>> uploadFile(
     PlatformFile file,
     PortablePath destDirectory,

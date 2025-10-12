@@ -1,6 +1,7 @@
 import 'package:letso/api.dart';
 import 'package:letso/settings.dart';
 import 'package:letso/upload_manager.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// Status information model for the StatusBar widget
 class StatusInfo {
@@ -15,11 +16,17 @@ class AppState {
   final UploadManager uploadManager;
   final StatusInfo statusInfo = StatusInfo(totalItems: 0);
   final List<Function> _browserListeners = [];
+  final String apiVersion;
+  final String serverVersion;
+  final PackageInfo packageInfo;
 
   AppState({
     required this.settings,
     required this.api,
     required this.uploadManager,
+    required this.apiVersion,
+    required this.serverVersion,
+    required this.packageInfo,
   });
 
   bool get isUploading => uploadManager.isUploading;

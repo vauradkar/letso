@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:letso/api.dart';
-import 'package:letso/licenses_widget.dart';
+import 'package:letso/app_info_widget.dart';
 import 'package:letso/logger_manager.dart';
 import 'package:letso/app_state.dart';
 import 'package:letso/browser_container.dart';
@@ -9,6 +9,7 @@ import 'package:letso/settings.dart';
 import 'package:letso/settings_page.dart';
 import 'package:letso/status_bar.dart';
 import 'package:letso/upload_manager.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 // This is the main entry point for the Flutter application.
 void main() async {
@@ -64,7 +65,7 @@ class _MyAppState extends State<MyApp> {
 
   Widget _buildMainContent(
     BuildContext context,
-    AsyncSnapshot<Settings> snapshot,
+    AsyncSnapshot<AppState> snapshot,
   ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(
@@ -75,14 +76,8 @@ class _MyAppState extends State<MyApp> {
     } else if (snapshot.hasError) {
       return Center(child: Text('Error: ${snapshot.error}'));
     } else if (snapshot.hasData) {
-      Settings settings = snapshot.data as Settings;
-      Api api = Api.create(settings);
-      AppState appState = AppState(
-        settings: settings,
-        api: api,
-        uploadManager: UploadManager(api: api),
-      );
-      if (settings.isConfigured()) {
+      AppState appState = snapshot.data as AppState;
+      if (appState.settings.isConfigured()) {
         return Column(
           children: [
             Expanded(child: BrowserContainer(appState: appState)),
@@ -103,6 +98,23 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Future<AppState> _loadAppState() async {
+    final settings = await Settings.loadSettings();
+    Api api = Api.create(settings);
+    final serverVersion = await api.getServerVersion();
+    final apiVersion = await api.getApiVersion();
+    final packageInfo = await PackageInfo.fromPlatform();
+    AppState appState = AppState(
+      settings: settings,
+      api: api,
+      uploadManager: UploadManager(api: api),
+      serverVersion: serverVersion,
+      apiVersion: apiVersion,
+      packageInfo: packageInfo,
+    );
+    return appState;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,17 +133,40 @@ class _MyAppState extends State<MyApp> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const LicencesWidget()),
+                MaterialPageRoute(
+                  builder: (_) => FutureBuilder(
+                    future: _loadAppState(),
+                    builder: _buildAppInfoWidget,
+                  ),
+                ),
               );
             },
             icon: const Icon(Icons.info_outline),
           ),
         ],
       ),
-      body: FutureBuilder(
-        future: Settings.loadSettings(),
-        builder: _buildMainContent,
-      ),
+      body: FutureBuilder(future: _loadAppState(), builder: _buildMainContent),
     );
+  }
+
+  Widget _buildAppInfoWidget(
+    BuildContext context,
+    AsyncSnapshot<AppState> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (snapshot.hasError) {
+      logger.e('Error loading app state: ${snapshot.error}');
+      return Center(child: Text('Error: ${snapshot.error}'));
+    } else if (snapshot.hasData) {
+      AppState appState = snapshot.data as AppState;
+      return AppInfoWidget(
+        apiVersion: appState.apiVersion,
+        serverVersion: appState.serverVersion,
+        appVersion: appState.packageInfo.version,
+      );
+    } else {
+      return const Center(child: Text('No data'));
+    }
   }
 }

@@ -17,12 +17,31 @@ use crate::app_state::AppState;
 use crate::app_state::UploadFileRequest;
 pub(crate) struct Api;
 
+static API_VERSION: &str = "1";
+
 #[OpenApi]
 impl Api {
     /// Hello world
     #[oai(path = "/test", method = "get")]
     async fn index(&self) -> PlainText<&'static str> {
+        debug!("Received test request");
         PlainText("Hello World")
+    }
+
+    /// Return the version of the server
+    /// This can be used by clients to check compatibility.
+    #[oai(path = "/server_version", method = "get")]
+    async fn version(&self) -> PlainText<&'static str> {
+        debug!("Received version request");
+        PlainText(env!("CARGO_PKG_VERSION"))
+    }
+
+    /// Return the api version of the server
+    /// This can be used by clients to check compatibility.
+    #[oai(path = "/api_version", method = "get")]
+    async fn api_version(&self) -> PlainText<&'static str> {
+        debug!("Received api version request");
+        PlainText(API_VERSION)
     }
 
     /// List directory contents
