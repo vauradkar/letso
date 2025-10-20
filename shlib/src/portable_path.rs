@@ -9,7 +9,7 @@ use serde::de;
 
 use crate::Error;
 use crate::FileStat;
-use crate::LookupResult;
+use crate::SyncItem;
 
 /// A custom deserializer function for a Vec<String> that checks for ".."
 /// components.
@@ -69,8 +69,8 @@ impl PortablePath {
     /// # Returns
     /// * `Result<Lookup, Error>` - The lookup result containing the path and
     ///   its metadata, or an error message.
-    pub fn lookup(&self) -> Result<LookupResult, Error> {
-        Ok(LookupResult {
+    pub fn lookup(&self) -> Result<SyncItem, Error> {
+        Ok(SyncItem {
             path: self.clone(),
             stats: self.get_file_stat()?,
         })

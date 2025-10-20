@@ -6,33 +6,32 @@ use poem_openapi::types::multipart::JsonField;
 use poem_openapi::types::multipart::Upload;
 use shlib::Directory;
 use shlib::Error;
-use shlib::LookupResult;
+use shlib::FileStat;
 use shlib::PortablePath;
 use shlib::RelativeFs;
+use shlib::SyncItem;
+use tokio::sync::mpsc::Sender;
 
 use crate::args::Args;
 
-// Define a struct to represent the multipart form data, including the file.
+// a struct to represent the multipart form data, including the file.
 #[derive(Debug, Multipart)]
 pub(crate) struct UploadFileRequest {
     #[oai(rename = "file")] // Rename the field to "file" in the form data
     file: Upload, // Represents the uploaded file
-    description: String,           // Additional field in the form
-    path: JsonField<PortablePath>, // Path where the file should be uploaded
-    overwrite: bool,               // Whether to overwrite existing files
-    sha256: Option<String>,        // Optional checksum field
+    pub path: JsonField<PortablePath>, // Path where the file should be uploaded
+    overwrite: bool,                   // Whether to overwrite existing files
+    stats: JsonField<FileStat>,        // Optional checksum field
 }
 
 pub struct AppState {
     base_dir: RelativeFs,
     pub(crate) app_dir: PathBuf,
+    pub buffer_items: usize,
+    pub chunk_count: usize,
 }
 
 impl AppState {
-    pub fn lookup(&self, path: &PortablePath) -> Result<LookupResult, Error> {
-        path.lookup()
-    }
-
     pub async fn browse_path(&self, path: &PortablePath) -> Result<Directory, Error> {
         let mut entries = self.base_dir.browse_path(path).await?;
         entries.current_path = path.clone();
@@ -46,17 +45,20 @@ impl AppState {
             .file
             .content_type()
             .unwrap_or("application/octet-stream");
-        // In a real application, you would save the file to disk or cloud storage here.
-        // For this example, we just print some information.
-        debug!(
-            "Received file: {filename} Content-Type: {content_type} Description: {} Upload path: {} sha256: {:?}",
-            form.description, form.path.0, form.sha256
-        );
         let mut path = form.path.0.clone();
         path.push(filename);
 
+        debug!(
+            "Received file: {filename} Content-Type: {content_type} Upload path: {} stats: {:?}",
+            path, form.stats
+        );
         self.base_dir
-            .write(&path, &form.file.into_vec().await.unwrap(), form.overwrite)
+            .write(
+                &path,
+                &form.file.into_vec().await.unwrap(),
+                form.overwrite,
+                &form.stats.0,
+            )
             .await?;
 
         Ok(())
@@ -71,6 +73,15 @@ impl AppState {
 
     pub async fn read_file(&self, path: &PortablePath) -> Result<Vec<u8>, Error> {
         self.base_dir.read_file(path).await
+    }
+
+    pub async fn exchange_deltas(
+        &self,
+        tx: Sender<Vec<SyncItem>>,
+        delta: shlib::DeltaExchange,
+        chunk_size: usize,
+    ) {
+        self.base_dir.exchange_deltas(tx, delta, chunk_size).await
     }
 }
 
@@ -97,6 +108,8 @@ impl TryFrom<&Args> for AppState {
         Ok(AppState {
             base_dir: base_dir.into(),
             app_dir,
+            buffer_items: args.buffer_items,
+            chunk_count: args.chunk_count,
         })
     }
 }

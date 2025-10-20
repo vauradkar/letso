@@ -7,11 +7,15 @@ use poem::web::Data;
 use poem_openapi::OpenApi;
 use poem_openapi::payload::Attachment;
 use poem_openapi::payload::AttachmentType;
+use poem_openapi::payload::EventStream;
 use poem_openapi::payload::Json;
 use poem_openapi::payload::PlainText;
+use shlib::DeltaExchange;
 use shlib::Directory;
-use shlib::LookupResult;
 use shlib::PortablePath;
+use shlib::SyncItem;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::app_state::AppState;
 use crate::app_state::UploadFileRequest;
@@ -59,6 +63,26 @@ impl Api {
             .map_err(InternalServerError)
     }
 
+    /// Exchange deltas with the server.
+    /// recursively traverses a directory tree at `path` and returns a list of
+    /// all files found, along with their metadata including checksum.
+    /// Input SyncData can be null for server to send full SyncData.
+    #[oai(path = "/browse/exchange_deltas", method = "post")]
+    async fn exchange_deltas(
+        &self,
+        config: Data<&Arc<AppState>>,
+        delta: Json<DeltaExchange>,
+    ) -> EventStream<ReceiverStream<Vec<SyncItem>>> {
+        debug!("exchange_deltas SyncItem: {:?}", delta.0);
+        let (tx, rx) = mpsc::channel(config.buffer_items);
+        let state = config.0.clone();
+        tokio::spawn(async move {
+            state.exchange_deltas(tx, delta.0, state.chunk_count).await;
+        });
+        let rx_stream = ReceiverStream::new(rx);
+        EventStream::new(rx_stream)
+    }
+
     /// Upload a file
     #[oai(path = "/upload/file", method = "post")]
     async fn upload_file(
@@ -66,24 +90,12 @@ impl Api {
         config: Data<&Arc<AppState>>,
         form: UploadFileRequest,
     ) -> Result<PlainText<&'static str>> {
+        debug!("Received upload request for path: {:?}", form.path.0);
         config
             .save_uploaded_file(form)
             .await
             .map_err(InternalServerError)?;
         Ok(PlainText("File uploaded successfully!"))
-    }
-
-    #[oai(path = "/upload/check", method = "post")]
-    async fn check_upload(
-        &self,
-        config: Data<&Arc<AppState>>,
-        paths: Json<Vec<PortablePath>>,
-    ) -> Result<Json<Vec<LookupResult>>> {
-        let mut ret = Vec::new();
-        for path in &paths.0 {
-            ret.push(config.lookup(path).map_err(InternalServerError)?);
-        }
-        Ok(Json(ret))
     }
 
     #[oai(path = "/delete/files", method = "post")]

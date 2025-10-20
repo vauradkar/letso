@@ -22,4 +22,12 @@ pub struct Args {
     /// Defaults to 3000.
     #[arg(short, long, default_value_t = 3000)]
     pub port: u16,
+
+    /// Number of items to buffer when uploading/downloading files.
+    #[arg(long, default_value_t = 1000)]
+    pub buffer_items: usize,
+
+    /// Number of chunks to split files into for REST api transfer.
+    #[arg(short, long, default_value_t = 1000)]
+    pub chunk_count: usize,
 }

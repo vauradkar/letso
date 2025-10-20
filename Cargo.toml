@@ -1,3 +1,4 @@
 [workspace]
+edition = "2024"
 members = ["server", "shlib"]
 resolver = "3"

@@ -28,9 +28,18 @@ pub struct Directory {
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 /// Represents the contents of a directory, including the current path and its
 /// items.
-pub struct LookupResult {
+pub struct SyncItem {
     /// The full path of the file.
     pub path: PortablePath,
     /// Metadata if the file exists.
     pub stats: Option<FileStat>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+/// a struct to represent the exchange of delta.
+pub struct DeltaExchange {
+    /// Path where the directory should be synced
+    pub dest: PortablePath,
+    /// List of SyncItems representing the deltas
+    pub deltas: Vec<SyncItem>,
 }

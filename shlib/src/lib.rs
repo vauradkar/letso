@@ -12,15 +12,21 @@ mod relative_fs;
 pub use relative_fs::RelativeFs;
 
 mod portable_directory;
+pub use portable_directory::DeltaExchange;
 pub use portable_directory::Directory;
 pub use portable_directory::DirectoryEntry;
-pub use portable_directory::LookupResult;
+pub use portable_directory::SyncItem;
 
 mod portable_file;
 pub use portable_file::FileStat;
 
 mod portable_path;
 pub use portable_path::PortablePath;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
+#[cfg(test)]
+pub use test_utils::TestRoot;
 
 /// Formats a file size in bytes into a human-readable string (e.g., KB, MB).
 ///
@@ -57,6 +63,16 @@ pub fn format_file_size(size: u64) -> String {
 pub fn format_system_time(time: SystemTime) -> String {
     let datetime: DateTime<Utc> = time.into();
     datetime.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+/// Builds a `SystemTime` from a RFC 3339 - Z formatted string.
+/// For example "2018-01-26T18:30:09.453Z"
+pub fn parse_system_time(s: &str) -> Result<SystemTime, Error> {
+    let datetime = DateTime::parse_from_rfc3339(s).map_err(|e| Error::ParseError {
+        what: "parse system time".into(),
+        how: e.to_string(),
+    })?;
+    Ok(SystemTime::from(datetime))
 }
 
 /// Represents an uploaded file with its path and contents.

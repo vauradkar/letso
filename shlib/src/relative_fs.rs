@@ -2,17 +2,92 @@ use std::fs::read_dir;
 use std::path::Path;
 use std::path::PathBuf;
 
+use async_walkdir::Filtering;
+use async_walkdir::WalkDir;
+use futures_lite::stream::StreamExt;
 use log::debug;
 use log::error;
 use log::info;
 use log::trace;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::Sender;
 
+use crate::DeltaExchange;
 use crate::Directory;
 use crate::DirectoryEntry;
 use crate::Error;
 use crate::FileStat;
 use crate::PortablePath;
+use crate::SyncItem;
 use crate::format_system_time;
+use crate::parse_system_time;
+
+async fn recurse_path_sender_err(
+    base_dir: PathBuf,
+    full_path: PathBuf,
+    tx: Sender<Vec<SyncItem>>,
+    chunk_size: usize,
+) -> Result<(), Error> {
+    let mut entries = WalkDir::new(&full_path).filter(|entry| async move {
+        if let Ok(metadata) = entry.metadata().await
+            && metadata.is_dir()
+        {
+            return Filtering::Continue;
+        }
+        Filtering::Continue
+    });
+    let mut chunks = Vec::with_capacity(chunk_size);
+    loop {
+        match entries.next().await {
+            Some(Ok(entry)) => {
+                debug!("entry path: {}", entry.path().display());
+                let stats = FileStat::from_dir_entry(&entry).await?;
+                let relative_path = entry
+                    .path()
+                    .strip_prefix(&base_dir)
+                    .map_err(|e| Error::ReadError {
+                        what: "strip_prefix".into(),
+                        how: e.to_string(),
+                    })?
+                    .to_owned();
+                let portable_path = PortablePath::try_from(&relative_path)?;
+                chunks.push(SyncItem {
+                    path: portable_path,
+                    stats: Some(stats),
+                });
+                if chunks.len() == chunk_size {
+                    tx.send(std::mem::take(&mut chunks))
+                        .await
+                        .map_err(|e| Error::SyncFailed {
+                            what: "failed to tx".to_owned(),
+                            how: e.to_string(),
+                        })?;
+                    if chunks.capacity() < chunk_size {
+                        chunks.reserve(chunk_size - chunks.capacity());
+                    }
+                }
+            }
+            Some(Err(e)) => {
+                return Err(Error::ReadError {
+                    what: "walkdir".into(),
+                    how: e.to_string(),
+                });
+            }
+            None => {
+                if !chunks.is_empty() {
+                    tx.send(std::mem::take(&mut chunks))
+                        .await
+                        .map_err(|e| Error::SyncFailed {
+                            what: "failed to tx".to_owned(),
+                            how: e.to_string(),
+                        })?;
+                }
+                break;
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Represents a filesystem rooted at a relative base directory.
 pub struct RelativeFs {
@@ -60,8 +135,6 @@ impl RelativeFs {
     pub async fn browse_path(&self, path: &PortablePath) -> Result<Directory, Error> {
         let full_path = self.as_abs_path(path);
 
-        debug!("line: {} incoming:{}", line!(), full_path.display());
-
         let mut items =
             Self::list_directory_contents(&full_path).map_err(|e| Error::ReadError {
                 what: "list directory".into(),
@@ -75,12 +148,56 @@ impl RelativeFs {
             _ => a.name.cmp(&b.name),
         });
 
-        debug!("line: {} outgoing:{}", line!(), full_path.display());
-
         Ok(Directory {
             current_path: path.clone(),
             items,
         })
+    }
+
+    /// Recursively walks directory `path`` and returns files and their metadata
+    /// under the directory tree.
+    ///
+    /// # Arguments
+    /// * `path` - The path to the directory to browse.
+    ///
+    /// # Returns
+    /// * `Result<DirectoryEntries, Error>` - The directory entries or an error
+    ///   message.
+    pub async fn recurse_path(&self, path: &PortablePath) -> Result<Vec<SyncItem>, Error> {
+        let (tx, mut rx) = mpsc::channel(100);
+        let base_dir = self.base_dir.clone();
+        let full_path = self.as_abs_path(path);
+        let x =
+            tokio::spawn(async move { recurse_path_sender_err(base_dir, full_path, tx, 20).await });
+        let mut items = Vec::new();
+        while let Some(mut item) = rx.recv().await {
+            items.append(&mut item);
+        }
+        x.await.unwrap()?;
+        Ok(items)
+    }
+
+    /// Exchanges file deltas by sending SyncItem objects for the given
+    /// destination path over the provided channel.
+    ///
+    /// # Arguments
+    /// * `tx` - The channel sender to transmit SyncItem objects.
+    /// * `delta` - The DeltaRequest containing the destination path to recurse.
+    pub async fn exchange_deltas(
+        &self,
+        tx: Sender<Vec<SyncItem>>,
+        delta: DeltaExchange,
+        chunk_size: usize,
+    ) {
+        let base_dir = self.base_dir.clone();
+        let full_path = self.as_abs_path(&delta.dest);
+        debug!(
+            "exchange_deltas base_dir: {} full_path:{} dest:{}",
+            base_dir.display(),
+            full_path.display(),
+            delta.dest
+        );
+        _ = recurse_path_sender_err(base_dir, full_path, tx, chunk_size).await;
     }
 
     /// Lists the contents of a directory and returns their metadata.
@@ -102,7 +219,6 @@ impl RelativeFs {
             ));
         }
 
-        info!("line: {} {}", line!(), full_path.display());
         let mut items = Vec::new();
 
         info!("full path: {}", full_path.display());
@@ -139,11 +255,7 @@ impl RelativeFs {
             );
             items.push(DirectoryEntry {
                 name: relative_path.to_str().unwrap().to_owned(),
-                stats: FileStat {
-                    is_directory: metadata.is_dir(),
-                    size: metadata.len(),
-                    mtime: format_system_time(modified),
-                },
+                stats: (&metadata).into(),
             });
         }
         trace!("line: {} items: {:?}", line!(), items);
@@ -174,6 +286,7 @@ impl RelativeFs {
         path: &PortablePath,
         data: &[u8],
         overwrite: bool,
+        stats: &FileStat,
     ) -> Result<(), Error> {
         let full_path = self.as_abs_path(path);
         if full_path.exists() && !overwrite {
@@ -190,7 +303,25 @@ impl RelativeFs {
             .map_err(|e| Error::WriteFailed {
                 what: full_path.to_str().unwrap().into(),
                 how: e.to_string(),
-            })
+            })?;
+        let mtime = parse_system_time(&stats.mtime)?;
+        let full_path_clone = full_path.clone();
+        // Update mtime of the file if stats provided
+        tokio::task::spawn_blocking(move || -> Result<(), std::io::Error> {
+            let file = std::fs::File::options()
+                .append(true)
+                .open(&full_path_clone)?;
+            file.set_modified(mtime)
+        })
+        .await
+        .map_err(|e| Error::WriteFailed {
+            what: full_path.to_str().unwrap().into(),
+            how: e.to_string(),
+        })?
+        .map_err(|e| Error::WriteFailed {
+            what: full_path.to_str().unwrap().into(),
+            how: e.to_string(),
+        })
     }
 
     /// Deletes the file at the specified path.
@@ -225,5 +356,26 @@ impl RelativeFs {
                 what: full_path.to_str().unwrap().into(),
                 how: e.to_string(),
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TestRoot;
+    #[tokio::test]
+    async fn test_recurse_path() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs {
+            base_dir: root.root.path().to_path_buf(),
+        };
+
+        let r = fs
+            .recurse_path(&PortablePath::try_from(&Path::new("").to_owned()).unwrap())
+            .await
+            .unwrap();
+
+        println!("r: {r:#?}");
+        root.are_synced(&r).unwrap();
     }
 }

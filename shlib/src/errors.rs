@@ -54,4 +54,13 @@ pub enum Error {
         /// The reason for the failure.
         how: String,
     },
+
+    /// Error indicating a failure to sync file(s).
+    #[error("Sync failed {what}: {how}")]
+    SyncFailed {
+        /// Specific failure type
+        what: String,
+        /// The potential  reason for the failure.
+        how: String,
+    },
 }
