@@ -1,26 +1,24 @@
 [package]
-edition = "2024"
+edition.workspace = true
 name = "shlib"
-version = "0.1.0"
-
-[lints.rust]
-missing_docs = { level = "warn" }
-rust-2024-compatibility = { level = "warn" }
-unsafe_code = { level = "warn" }
+version.workspace = true
 
 [dependencies]
-async-walkdir = "2.1.0"
-chrono = "0.4.41"
-env_logger = "0.11.8"
-futures-lite = "2.6.1"
-log = "0.4.27"
-poem = { version = "3.1.12", features = ["static-files"] }
-poem-openapi = { version = "5.1.16", features = ["swagger-ui"] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.143"
-sha2 = "0.10.9"
-thiserror = "2.0.16"
-tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
+async-walkdir = { workspace = true }
+chrono = { workspace = true }
+env_logger = { workspace = true }
+futures-lite = { workspace = true }
+log = { workspace = true }
+poem = { workspace = true }
+poem-openapi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempdir = { workspace = true }
+
+[lints]
+workspace = true
