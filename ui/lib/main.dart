@@ -36,6 +36,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  AppState? appState;
   void showSettingsPage(BuildContext context) {
     Navigator.push(
       context,
@@ -44,6 +45,7 @@ class _MyAppState extends State<MyApp> {
           onChange: () {
             setState(() {});
           },
+          appState: appState,
         ),
       ),
     );
@@ -90,6 +92,7 @@ class _MyAppState extends State<MyApp> {
             onChange: () {
               setState(() {});
             },
+            appState: appState,
           ),
         );
       }
@@ -104,7 +107,7 @@ class _MyAppState extends State<MyApp> {
     final serverVersion = await api.getServerVersion();
     final apiVersion = await api.getApiVersion();
     final packageInfo = await PackageInfo.fromPlatform();
-    AppState appState = AppState(
+    AppState state = AppState(
       settings: settings,
       api: api,
       uploadManager: UploadManager(api: api),
@@ -112,7 +115,8 @@ class _MyAppState extends State<MyApp> {
       apiVersion: apiVersion,
       packageInfo: packageInfo,
     );
-    return appState;
+    appState = state;
+    return state;
   }
 
   @override

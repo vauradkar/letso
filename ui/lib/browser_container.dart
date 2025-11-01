@@ -26,7 +26,7 @@ class BrowserContainer extends StatefulWidget {
 }
 
 class _BrowserContainerState extends State<BrowserContainer> {
-  PortablePath currentDirectory = PortablePath(components: ["/"]);
+  PortablePath currentDirectory = PortablePath(["/"]);
 
   @override
   void initState() {

@@ -14,6 +14,12 @@ class UploadResults {
   List<String> errors = [];
 
   UploadResults();
+
+  void addAll(UploadResults other) {
+    successCount += other.successCount;
+    failureCount += other.failureCount;
+    errors.addAll(other.errors);
+  }
 }
 
 class UploadManager {
@@ -63,7 +69,12 @@ class UploadManager {
         bytes = file.bytes!;
       }
       logger.d('Uploading file: ${file.name} to $dest');
-      await api.uploadFile(file, dest, bytes);
+      await api.uploadFile(
+        file,
+        dest,
+        bytes,
+        await FileStat.fromPickerFile(file),
+      );
       _syncStatus.removeFile(file.size);
       await Future.delayed(const Duration(seconds: 1));
     }
@@ -80,68 +91,82 @@ class UploadManager {
     );
   }
 
-  Future<List<io.FileSystemEntity>> getFilesInDirectoryRecursively(
+  Future<(List<SyncItem>, List<String>)> getFilesInDirectoryRecursively(
     String directoryPath,
   ) async {
     final directory = io.Directory(directoryPath);
-    final elements = await directory
-        .list(recursive: true)
-        .where((f) => f is io.File)
-        .toList();
-    return elements;
+    List<SyncItem> items = [];
+    List<String> errors = [];
+
+    await for (var event
+        in directory.list(recursive: true).where((f) => f is io.File)) {
+      var item = await SyncItem.fromFileSystemEntity(event);
+      if (item == null) {
+        errors.add("failed to get SyncItem for ${event.path}");
+      } else {
+        items.add(item);
+      }
+    }
+    return (items, errors);
   }
 
   Future<UploadResults> _lookupAndUpload(
     final PortablePath dest,
-    String directory,
+    PortablePath src,
   ) async {
     UploadResults results = UploadResults();
-    logger.d('Selected directory: $directory');
-    final files = await getFilesInDirectoryRecursively(directory);
-    logger.d('Found ${files.length} files in directory $directory');
+    String srcPath = src.toString();
+    logger.d('Selected directory: $srcPath');
+    final (syncItems, errors) = await getFilesInDirectoryRecursively(srcPath);
+    logger.d('Found ${syncItems.length} files in directory $srcPath');
+
+    logger.d('Uploading directory: $src to $dest');
+    results.addAll(await uploadFiles(syncItems, dest, src));
+    return results;
+  }
+
+  Future<UploadResults> uploadFiles(
+    List<SyncItem> files,
+    PortablePath dest,
+    PortablePath src,
+  ) async {
     for (var file in files) {
-      logger.d('Found file: ${file.path} to upload to $dest');
-      var bytes = (await file.stat()).size;
-      _syncStatus.addFile(bytes);
+      _syncStatus.addFile(file.stats!.size);
     }
 
+    UploadResults results = UploadResults();
     for (var file in files) {
-      if (file is! io.File) {
+      if (!await io.FileSystemEntity.isFile(file.path.toString())) {
         continue; // Skip if not a file
       }
-      PortablePath destDir = buildDestDir(dest, directory, file);
+      PortablePath destDir = buildDestDir(dest, src, file.path);
 
       logger.d('Found file: ${file.path} to upload to $destDir');
-      final bytes = await io.File(file.path).readAsBytes();
+      final bytes = await io.File(file.path.toString()).readAsBytes();
       PlatformFile platformFile = PlatformFile(
-        name: file.path.split('/').last,
+        name: file.path.getAncestor(file.path.length - 1)!,
         size: bytes.length,
         bytes: bytes,
       );
-      api.uploadFile(platformFile, destDir, bytes);
+      var res = await api.uploadFile(platformFile, destDir, bytes, file.stats!);
 
       results.successCount += 1;
       _syncStatus.removeFile(bytes.length);
       await Future.delayed(const Duration(seconds: 1));
     }
-    logger.d('Uploading directory: $directory to $dest');
     return results;
   }
 
   PortablePath buildDestDir(
     PortablePath dest,
-    String directory,
-    io.FileSystemEntity file,
+    PortablePath baseSrc,
+    PortablePath file,
   ) {
-    PortablePath destDir = PortablePath(components: []);
-    for (var c in dest.components) {
-      if (c.isNotEmpty) {
-        destDir.add(c);
-      }
-    }
-    destDir.add(pp.basename(directory));
+    String baseDir = baseSrc.toString();
+    PortablePath destDir = PortablePath.clone(dest);
+    destDir.add(pp.basename(baseDir));
     for (var c in pp.split(
-      pp.dirname(pp.relative(file.path, from: directory)),
+      pp.dirname(pp.relative(file.toString(), from: baseDir)),
     )) {
       if (c.isNotEmpty) {
         destDir.add(c);
@@ -162,10 +187,8 @@ class UploadManager {
       logger.d('No directory selected for upload');
       return Future.value((null, Future.value(UploadResults())));
     }
-    return Future.value((
-      selectedDirectory,
-      _lookupAndUpload(dest, selectedDirectory),
-    ));
+    PortablePath path = PortablePath.fromString(selectedDirectory);
+    return Future.value((selectedDirectory, _lookupAndUpload(dest, path)));
   }
 
   Future<UploadResults> uploadDirectory(final PortablePath dest) async {
@@ -173,19 +196,15 @@ class UploadManager {
     return resultsFuture;
   }
 
-  Future<(SyncPath?, Future<UploadResults>)> syncDirectory(
+  Future<(SyncPath?, Future<UploadResults>)> selectAndSyncDirectory(
     final PortablePath dest,
   ) async {
     final (selectedDirectory, resultsFuture) = await _uploadDirectory(dest);
     if (selectedDirectory == null) {
       return Future.value((null, Future.value(UploadResults())));
     }
-    final syncPath = SyncPath(
-      local: selectedDirectory.startsWith('/')
-          ? PortablePath(components: pp.split(selectedDirectory))
-          : PortablePath(components: ['/', ...pp.split(selectedDirectory)]),
-      remote: dest,
-    );
+    final src = PortablePath.fromString(selectedDirectory);
+    final syncPath = SyncPath(src: src, dest: dest);
     return Future.value((syncPath, resultsFuture));
   }
 }

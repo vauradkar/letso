@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:letso/data.dart';
+import 'package:letso/logger_manager.dart';
 
 typedef DataRowCallback = void Function(SyncPath, String action);
 
 class SyncedDirectorySetting extends StatelessWidget {
   final List<SyncPath> dataFuture;
-  final DataRowCallback onActionPressed;
+  final DataRowCallback? onActionPressed;
 
   const SyncedDirectorySetting({
     super.key,
@@ -78,8 +79,8 @@ class SyncedDirectorySetting extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _buildDataCell(data.local.toString(), flex: 30),
-          _buildDataCell(data.remote.toString(), flex: 30),
+          _buildDataCell(data.src.toString(), flex: 30),
+          _buildDataCell(data.dest.toString(), flex: 30),
           _buildActionButtons(data, flex: 40),
         ],
       ),
@@ -110,14 +111,18 @@ class SyncedDirectorySetting extends StatelessWidget {
             icon: Icons.delete_outline,
             label: 'Delete',
             color: Colors.red.shade600,
-            onPressed: () => onActionPressed(data, 'delete'),
+            onPressed: onActionPressed == null
+                ? null
+                : () => onActionPressed!(data, 'delete'),
           ),
           const SizedBox(width: 8),
           _buildActionButton(
             icon: Icons.sync,
             label: 'Sync',
             color: Colors.green.shade600,
-            onPressed: () => onActionPressed(data, 'sync'),
+            onPressed: onActionPressed == null
+                ? null
+                : () => onActionPressed!(data, 'sync'),
           ),
         ],
       ),
@@ -128,11 +133,14 @@ class SyncedDirectorySetting extends StatelessWidget {
     required IconData icon,
     required String label,
     required Color color,
-    required VoidCallback onPressed,
+    required void Function()? onPressed,
   }) {
     return Expanded(
       child: IconButton(
-        onPressed: onPressed,
+        onPressed: () {
+          logger.d('Action button pressed: $label');
+          if (onPressed != null) onPressed();
+        },
         icon: Icon(icon, size: 16),
         // label: Text(
         //   label,

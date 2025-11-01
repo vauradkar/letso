@@ -1,4 +1,5 @@
 import 'package:letso/api.dart';
+import 'package:letso/platform.dart';
 import 'package:letso/settings.dart';
 import 'package:letso/upload_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -14,6 +15,7 @@ class AppState {
   final Settings settings;
   final Api api;
   final UploadManager uploadManager;
+  final SyncManager syncManager;
   final StatusInfo statusInfo = StatusInfo(totalItems: 0);
   final List<Function> _browserListeners = [];
   final String apiVersion;
@@ -27,7 +29,7 @@ class AppState {
     required this.apiVersion,
     required this.serverVersion,
     required this.packageInfo,
-  });
+  }) : syncManager = SyncManager(api: api, uploadManager: uploadManager);
 
   bool get isUploading => uploadManager.isUploading;
   int? get remainingFiles => uploadManager.remainingFiles;
@@ -39,8 +41,10 @@ class AppState {
   void unregisterSyncListener(Function listener) =>
       uploadManager.unregisterListener(listener);
 
-  void unregisterListener(Function listener) =>
-      _browserListeners.remove(listener);
+  void unregisterListener(Function listener) {
+    _browserListeners.remove(listener);
+    unregisterSyncListener(listener);
+  }
 
   /// Calculate bytes progress percentage (0.0 to 1.0)
   double get bytesProgress {

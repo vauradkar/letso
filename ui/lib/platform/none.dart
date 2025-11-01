@@ -1,4 +1,7 @@
+import 'package:letso/api.dart';
+import 'package:letso/data.dart';
 import 'package:letso/logger_manager.dart';
+import 'package:letso/upload_manager.dart';
 import 'package:logger/logger.dart';
 
 class PlatformLogOutput implements AbstractLogOutput {
@@ -25,4 +28,12 @@ class PlatformLogOutput implements AbstractLogOutput {
 
 Future<String> loadServerAddress() async {
   return "";
+}
+
+class SyncManager {
+  SyncManager({required Api api, required UploadManager uploadManager});
+
+  Future<UploadResults> sync(SyncPath path) async {
+    return UploadResults();
+  }
 }

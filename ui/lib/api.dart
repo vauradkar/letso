@@ -51,6 +51,7 @@ class Api {
     PlatformFile file,
     PortablePath destDirectory,
     Uint8List bytes,
+    FileStat stats,
   ) async {
     final url = getUri(_settings, "/api/upload/file");
     var request = MultipartRequest('POST', url);
@@ -61,10 +62,9 @@ class Api {
     request.files.add(
       MultipartFile.fromBytes('file', bytes, filename: file.name),
     );
-    request.fields['description'] = "test file upload";
-
     request.fields['path'] = json.encode(destDirectory).toString();
     request.fields['overwrite'] = json.encode(true).toString();
+    request.fields['stats'] = json.encode(stats).toString();
     var response = await request.send();
 
     if (response.statusCode == 200) {
@@ -107,13 +107,28 @@ class Api {
     if (response.statusCode == 200) {
       // If the server returns a 200 OK response, parse the JSON.
       final Map<String, dynamic> jsonList = json.decode(response.body);
-      logger.d('Response JSON: $jsonList');
-      return Either.right(Directory.fromJson(jsonList));
+      final ret = Directory.fromJson(jsonList);
+      logger.d('Received ${ret.items.length} files from server');
+      return Either.right(ret);
     } else {
       // If the server did not return a 200 OK response, handle the error.
       return Either.left(
         'Browse $currentDirectory failed with code:${response.statusCode}',
       );
     }
+  }
+
+  Future<http.StreamedResponse> exhcnageDeltas(DeltaRequest deltas) async {
+    var client = http.Client();
+    final uri = getUri(_settings, '/api/browse/exchange_deltas');
+    var request = http.Request('POST', uri)
+      ..headers.addAll({
+        'Content-Type': 'application/json',
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE, HEAD",
+      })
+      ..body = json.encode(deltas);
+
+    return await client.send(request);
   }
 }

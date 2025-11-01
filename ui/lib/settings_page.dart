@@ -1,13 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:letso/app_state.dart';
 import 'package:letso/data.dart';
 import 'package:letso/logger_manager.dart';
 import 'package:letso/settings.dart';
+import 'package:letso/status_bar.dart';
 import 'package:letso/synced_directory_setting.dart';
 
 class SettingsPage extends StatefulWidget {
   final Function onChange;
-  const SettingsPage({required this.onChange, super.key});
+  final AppState? appState;
+  const SettingsPage({
+    required this.onChange,
+    super.key,
+    required this.appState,
+  });
 
   @override
   SettingsPageState createState() => SettingsPageState();
@@ -69,18 +76,21 @@ class SettingsPageState extends State<SettingsPage> {
 
   Future<void> _updateSyncPath(SyncPath path, String action) async {
     if (action == 'delete') {
-      setState(() async {
-        await _settings.removeSyncPath(path);
-      });
-    } else if (action == 'sync') {
-      setState(() async {
-        logger.d('Sync action triggered for: $path');
-      });
+      await _settings.removeSyncPath(path);
+      setState(() {});
+    } else if (action == 'sync' && widget.appState != null) {
+      logger.e('Sync action triggered for: $path');
+      var result = await widget.appState!.syncManager.sync(path);
+      logger.d('Upload results: $result');
+      // setState(() {});
       await _settings.save();
     } else if (action == 'add') {
-      setState(() async {
-        await _settings.addSyncPath(path);
-      });
+      await _settings.addSyncPath(path);
+      setState(() {});
+    }
+
+    if (action == "sync") {
+      logger.e('Sync action triggered but state is null');
     }
   }
 
@@ -143,6 +153,15 @@ class SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: buildTabbedSettings(context)),
+        if (widget.appState != null) StatusBar(appState: widget.appState!),
+      ],
+    );
+  }
+
+  Widget buildTabbedSettings(BuildContext context) {
     List<Widget> tabs = [];
     if (!kIsWeb) {
       tabs.add(const Tab(icon: Icon(Icons.backup)));
@@ -174,7 +193,9 @@ class SettingsPageState extends State<SettingsPage> {
                 "Synced Directories",
                 SyncedDirectorySetting(
                   dataFuture: _settings.syncPaths,
-                  onActionPressed: _updateSyncPath,
+                  onActionPressed: widget.appState == null
+                      ? null
+                      : _updateSyncPath,
                 ),
               ),
             );

@@ -6,6 +6,7 @@ import 'package:letso/platform/none.dart'
     as x;
 
 typedef AppLogOutput = x.PlatformLogOutput;
+typedef SyncManager = x.SyncManager;
 
 class Platform {
   static Future<String> loadServerAddress() => x.loadServerAddress();

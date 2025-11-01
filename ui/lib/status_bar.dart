@@ -33,11 +33,19 @@ class _StatusBarState extends State<StatusBar> {
   _StatusBarState();
 
   @override
+  void dispose() {
+    widget.appState.unregisterListener(updateListener);
+    super.dispose();
+  }
+
+  void updateListener() {
+    setState(() {});
+  }
+
+  @override
   void initState() {
     super.initState();
-    widget.appState.registerListener(() {
-      setState(() {});
-    });
+    widget.appState.registerListener(updateListener);
   }
 
   @override
@@ -133,7 +141,7 @@ class _StatusBarState extends State<StatusBar> {
               if (widget.appState.remainingFiles != null &&
                   widget.appState.totalFiles != null) ...[
                 Text(
-                  '${widget.appState.remainingFiles}/${widget.appState.totalFiles} files',
+                  '${widget.appState.totalFiles! - widget.appState.remainingFiles!}/${widget.appState.totalFiles} files',
                   style: TextStyle(
                     color: textColor,
                     fontSize: 14,

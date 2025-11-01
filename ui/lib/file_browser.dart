@@ -207,7 +207,8 @@ class _FileBrowserState extends State<FileBrowser> {
         if (!kIsWeb)
           _buildButton(Icon(Icons.sync), "Sync", () async {
             var (syncPath, result) = await widget.appState.uploadManager
-                .syncDirectory(widget.directory.currentPath);
+                .selectAndSyncDirectory(widget.directory.currentPath);
+            var res = await result;
             if (syncPath != null) {
               var settings = Settings();
               await settings.load();
@@ -249,7 +250,7 @@ class _FileBrowserState extends State<FileBrowser> {
   Widget buildInternal(BuildContext context) {
     List<Widget> ancestors = [];
     for (int i = 0; i < widget.directory.currentPath.length; i++) {
-      String ancestor = widget.directory.currentPath.components[i];
+      String ancestor = widget.directory.currentPath.getAncestor(i)!;
       ancestors.add(
         ElevatedButton(
           onPressed: () {
