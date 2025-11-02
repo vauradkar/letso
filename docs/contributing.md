@@ -14,6 +14,14 @@ You can build the container from root of project directory with
 docker build --progress=plain --no-cache -t letso:latest -f container/Dockerfile .
 ```
 
+## Generating `data.g.dart`
+
+build_runner generates json serde code from `data.dart`. Whenever you change the file, update the `data.g.dart` with
+
+```shell
+dart run build_runner build
+```
+
 ## Generating licences information for new dependecies
 
 Run the following command which will generate `lib/oss_licenses.dart` and commit that file.
