@@ -1,43 +1,84 @@
-# Use official Rust image to build the backend
-FROM rust:1.90 AS backend-builder
+# ----------------------------------------------------------------------------------
+# STAGE 1: Backend Dependencies (for caching)
+# This stage only builds the dependencies, which change less often than the code.
+# ----------------------------------------------------------------------------------
+FROM rust:1.90 AS backend-deps
 
 WORKDIR /app
+
+# Copy only the manifest files first
+COPY Cargo.toml Cargo.lock ./
+COPY shlib/Cargo.toml ./shlib/
+COPY server/Cargo.toml ./server/
+
+# Create a dummy src/main.rs to force cargo to download and build dependencies
+# This is the standard Rust "caching trick"
+RUN mkdir -p server/src/
+RUN echo "//! placeholder main \n fn main() {}" > server/src/main.rs
+RUN mkdir -p shlib/src/
+RUN echo "//! placeholder lib" > shlib/src/lib.rs
+
+# Build dependencies (and throw away the dummy build)
+# The result is that the /usr/local/cargo cache is populated.
+RUN cargo build --release
+RUN rm -rf src/
+
+# ----------------------------------------------------------------------------------
+# STAGE 2: Backend Builder (Leveraging cached dependencies)
+# ----------------------------------------------------------------------------------
+FROM backend-deps AS backend-builder
+
+# Copy the source code now (this invalidates the cache after Stage 1 if code changes)
 COPY . .
 
-# RUN ls -la /app
-# RUN ls -la .
-
-# Build the Rust backend (assumes Cargo.toml is in root)
+# Build the Rust backend
+# This will reuse the dependencies built in Stage 1, making this step much faster
 RUN cargo build --release
 
-# Use official Flutter image to build the frontend
+# ----------------------------------------------------------------------------------
+# STAGE 3: Frontend Builder (Flutter Packages Caching)
+# ----------------------------------------------------------------------------------
 FROM ghcr.io/cirruslabs/flutter:stable AS frontend-builder
 
 WORKDIR /app/
 COPY ./ui .
-# RUN ls -la /app/
 
-RUN flutter --version 
-RUN flutter doctor
+# Copy pubspec.yaml and pubspec.lock first
+COPY ./ui/pubspec.yaml ./ui/pubspec.lock ./
 
-# Build Flutter web app (assumes web target)
+# Get packages (this is the key caching step for Flutter)
+# This layer is only invalidated if pubspec files change
+RUN flutter pub get
+
+# Now copy the rest of the source files
+COPY ./ui .
+
+# Build Flutter web app
 RUN flutter build web
-# RUN ls -la /app/.
 
-# Final image
+# ----------------------------------------------------------------------------------
+# STAGE 4: Final Image (Minimal)
+# ----------------------------------------------------------------------------------
 FROM debian:bookworm-slim
+
+# Install ca-certificates required for most communication
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create directories
 RUN mkdir -p /letso/bin /letso/ui
 
 # Copy backend binary
+# Use 'server' binary (Rust builds an executable named after the package name in Cargo.toml)
 COPY --from=backend-builder /app/target/release/server /letso/bin/
 
 # Copy frontend build
 COPY --from=frontend-builder /app/build/web /letso/ui/
 
-
+# User, Permissions, and Metadata
 VOLUME /data
 EXPOSE 2284
-# Set entrypoint (adjust as needed)
+
+# Set entrypoint
 ENTRYPOINT ["/letso/bin/server", "--base-dir", "/data/", "--app-dir", "/letso/ui/", "--port", "2284", "--bind", "0.0.0.0"]
