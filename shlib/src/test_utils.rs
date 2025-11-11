@@ -7,19 +7,22 @@ use std::path::PathBuf;
 use async_walkdir::WalkDir;
 use futures_lite::StreamExt;
 
+use crate::Directory;
 use crate::Error;
 use crate::FileStat;
 use crate::SyncItem;
 
 // File paths and optional contents to create in the temporary test
-pub(crate) static TEMP_FILES: &[(&str, &str)] = &[
-    ("file1.txt", ""),
-    ("file2.txt", ""),
-    ("dir1/file3.txt", ""),
-    ("dir1/dir2/file4.txt", ""),
-    ("dir1/dir2/file4.txt", ""),
-    ("dir1/dir2/dir_empty/", ""),
-    ("dir3/file6.txt", ""),
+pub(crate) static TEMP_FILES: &[(&str, &str, bool)] = &[
+    ("file1.txt", "", false),
+    ("file2.txt", "", false),
+    ("dir1", "", true),
+    ("dir1/file3.txt", "", false),
+    ("dir1/dir2", "", true),
+    ("dir1/dir2/file4.txt", "", false),
+    ("dir1/dir2/dir_empty1", "", true),
+    ("dir3", "", true),
+    ("dir3/file6.txt", "", false),
 ];
 
 /// Utility structure for managing a temporary test directory and its files.
@@ -45,8 +48,8 @@ impl TestRoot {
             files: BTreeMap::new(),
             save_path: save_path.map(|p| Path::new("/tmp/").join(p)),
         };
-        for (relative_path, contents) in TEMP_FILES {
-            let dir = if relative_path.ends_with('/') {
+        for (relative_path, contents, is_dir) in TEMP_FILES {
+            let dir = if *is_dir {
                 Path::new(relative_path)
             } else {
                 Path::new(relative_path).parent().unwrap()
@@ -56,7 +59,7 @@ impl TestRoot {
                 what: format!("directory {}", dir.display()),
                 how: e.to_string(),
             })?;
-            if !relative_path.ends_with('/') {
+            if !*is_dir {
                 ret.create_file(relative_path, Some(contents))
                     .await
                     .unwrap();
@@ -95,21 +98,26 @@ impl TestRoot {
         Ok(())
     }
 
+    async fn get_insertable(&self, path: &Path) -> Result<(PathBuf, FileStat), Error> {
+        let stats = FileStat::from_path(path).await?;
+        let relative_path = path
+            .strip_prefix(self.root.path())
+            .map_err(|e| Error::ReadError {
+                what: "strip_prefix".into(),
+                how: e.to_string(),
+            })?;
+
+        Ok((relative_path.to_owned(), stats))
+    }
+
     async fn reload_files(&mut self) -> Result<(), Error> {
         let mut new_files: BTreeMap<PathBuf, FileStat> = BTreeMap::new();
         let mut entries = WalkDir::new(self.root.path());
         loop {
             match entries.next().await {
                 Some(Ok(entry)) => {
-                    let stats = FileStat::from_dir_entry(&entry).await?;
-                    let path = entry.path();
-                    let relative_path =
-                        path.strip_prefix(self.root.path())
-                            .map_err(|e| Error::ReadError {
-                                what: "strip_prefix".into(),
-                                how: e.to_string(),
-                            })?;
-                    new_files.insert(relative_path.to_path_buf(), stats);
+                    let (p, s) = self.get_insertable(&entry.path()).await?;
+                    new_files.insert(p, s);
                 }
                 Some(Err(e)) => {
                     return Err(Error::ReadError {
@@ -163,6 +171,19 @@ impl TestRoot {
 
         Ok(())
     }
+
+    /// Verify that all entries in `dir` match the files recorded in this
+    /// TestRoot; panics if any entry's stats differ or are missing.
+    pub fn match_entries(&self, dir: &Directory) {
+        let dir_path = PathBuf::from(&dir.current_path);
+        for item in &dir.items {
+            let path = dir_path.join(&item.name);
+            println!("Matching entry: {}", path.display());
+            let stat = self.files.get(&path).unwrap();
+            assert_eq!(&item.stats, stat);
+        }
+    }
+
     fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), Error> {
         create_dir_all(&dst).unwrap();
         for entry in fs::read_dir(src).unwrap() {

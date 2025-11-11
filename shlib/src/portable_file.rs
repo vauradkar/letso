@@ -2,16 +2,15 @@ use std::fs::Metadata;
 use std::path::Path;
 use std::time::SystemTime;
 
-use async_walkdir::DirEntry;
+use async_fs::DirEntry;
 use poem_openapi::Object;
 use serde::Deserialize;
 use serde::Serialize;
-use sha2::Digest;
-use sha2::Sha256;
 use tokio::fs;
-use tokio::io::AsyncReadExt;
 
 use crate::Error;
+use crate::Sha256Builder;
+use crate::Sha256String;
 use crate::format_system_time;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Object)]
@@ -27,6 +26,7 @@ pub struct FileStat {
     /// Whether this entry is a directory.
     pub is_directory: bool,
     /// Optional digest of the file contents.
+    /// This allows us faster directory browsing.
     pub sha256: Option<String>,
 }
 
@@ -44,50 +44,21 @@ impl FileStat {
             what: "metadata".into(),
             how: e.to_string(),
         })?;
-        let mut ret = FileStat::from(&metadata);
-        if ret.is_directory {
-            return Ok(ret);
+        if metadata.is_dir() {
+            Ok(FileStat::from_metadata(&metadata, Some("".to_string())))
+        } else {
+            let sha256 = path.sha256_build().await?.sha256_string().await?;
+            Ok(FileStat::from_metadata(&metadata, Some(sha256)))
         }
-
-        let mut file = fs::File::open(path).await.map_err(|e| Error::ReadError {
-            what: path.to_string_lossy().to_string(),
-            how: e.to_string(),
-        })?;
-        let mut hasher = Sha256::new();
-        let mut buffer = vec![0; 4096]; // Read in chunks
-
-        let mut n = 0_u64;
-        loop {
-            let bytes_read = file.read(&mut buffer).await.map_err(|e| Error::ReadError {
-                what: path.to_string_lossy().to_string(),
-                how: e.to_string(),
-            })?;
-
-            if bytes_read == 0 {
-                break; // End of file
-            }
-            n += bytes_read as u64;
-            hasher.update(&buffer[..bytes_read]);
-        }
-
-        let hash = hasher.finalize();
-        if n == ret.size {
-            let digest = format!("{hash:x}");
-            ret.sha256 = Some(digest);
-        }
-
-        Ok(ret)
     }
-}
 
-impl From<&Metadata> for FileStat {
-    fn from(metadata: &Metadata) -> Self {
+    fn from_metadata(metadata: &Metadata, sha256: Option<String>) -> Self {
         let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
         FileStat {
             size: metadata.len(),
             mtime: format_system_time(modified),
             is_directory: metadata.is_dir(),
-            sha256: None,
+            sha256,
         }
     }
 }

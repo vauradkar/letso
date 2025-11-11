@@ -63,4 +63,11 @@ pub enum Error {
         /// The potential  reason for the failure.
         how: String,
     },
+
+    /// Error indicating an invalid path.
+    #[error("Invalid path: {what}")]
+    InvalidPath {
+        /// The invalid path description.
+        what: String,
+    },
 }

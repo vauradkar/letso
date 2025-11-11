@@ -2,6 +2,7 @@ use poem_openapi::Object;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::Error;
 use crate::FileStat;
 use crate::PortablePath;
 
@@ -13,6 +14,24 @@ pub struct DirectoryEntry {
     pub name: String,
     /// Metadata of the file or directory.
     pub stats: FileStat,
+}
+
+impl TryFrom<&SyncItem> for DirectoryEntry {
+    type Error = Error;
+    fn try_from(item: &SyncItem) -> Result<Self, crate::Error> {
+        let name = item
+            .path
+            .basename()
+            .ok_or(Error::InvalidPath {
+                what: item.path.to_string(),
+            })?
+            .to_string();
+        let stats = item.stats.clone().ok_or(Error::ReadError {
+            what: "failed to lookup stats".to_owned(),
+            how: "none found".to_owned(),
+        })?;
+        Ok(DirectoryEntry { name, stats })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

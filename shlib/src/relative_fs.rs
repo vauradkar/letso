@@ -1,103 +1,56 @@
-use std::fs::read_dir;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
 
-use async_walkdir::Filtering;
-use async_walkdir::WalkDir;
-use futures_lite::stream::StreamExt;
 use log::debug;
 use log::error;
-use log::info;
-use log::trace;
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 
+use crate::Cache;
 use crate::DeltaExchange;
+use crate::DirWalker;
 use crate::Directory;
 use crate::DirectoryEntry;
 use crate::Error;
 use crate::FileStat;
 use crate::PortablePath;
 use crate::SyncItem;
-use crate::format_system_time;
 use crate::parse_system_time;
 
-async fn recurse_path_sender_err(
-    base_dir: PathBuf,
-    full_path: PathBuf,
-    tx: Sender<Vec<SyncItem>>,
-    chunk_size: usize,
-) -> Result<(), Error> {
-    let mut entries = WalkDir::new(&full_path).filter(|entry| async move {
-        if let Ok(metadata) = entry.metadata().await
-            && metadata.is_dir()
-        {
-            return Filtering::Continue;
-        }
-        Filtering::Continue
-    });
-    let mut chunks = Vec::with_capacity(chunk_size);
-    loop {
-        match entries.next().await {
-            Some(Ok(entry)) => {
-                debug!("entry path: {}", entry.path().display());
-                let stats = FileStat::from_dir_entry(&entry).await?;
-                let relative_path = entry
-                    .path()
-                    .strip_prefix(&base_dir)
-                    .map_err(|e| Error::ReadError {
-                        what: "strip_prefix".into(),
-                        how: e.to_string(),
-                    })?
-                    .to_owned();
-                let portable_path = PortablePath::try_from(&relative_path)?;
-                chunks.push(SyncItem {
-                    path: portable_path,
-                    stats: Some(stats),
-                });
-                if chunks.len() == chunk_size {
-                    tx.send(std::mem::take(&mut chunks))
-                        .await
-                        .map_err(|e| Error::SyncFailed {
-                            what: "failed to tx".to_owned(),
-                            how: e.to_string(),
-                        })?;
-                    if chunks.capacity() < chunk_size {
-                        chunks.reserve(chunk_size - chunks.capacity());
-                    }
-                }
-            }
-            Some(Err(e)) => {
-                return Err(Error::ReadError {
-                    what: "walkdir".into(),
-                    how: e.to_string(),
-                });
-            }
-            None => {
-                if !chunks.is_empty() {
-                    tx.send(std::mem::take(&mut chunks))
-                        .await
-                        .map_err(|e| Error::SyncFailed {
-                            what: "failed to tx".to_owned(),
-                            how: e.to_string(),
-                        })?;
-                }
-                break;
-            }
-        }
+pub(crate) async fn lookup_or_load(
+    cache: Arc<Mutex<Cache>>,
+    path: &Path,
+    portable_path: &PortablePath,
+) -> Result<FileStat, Error> {
+    if let Some(stats) = cache.lock().unwrap().get(portable_path) {
+        Ok(stats.clone())
+    } else {
+        let stats = FileStat::from_path(path).await?;
+        cache
+            .lock()
+            .unwrap()
+            .put(portable_path.clone(), stats.clone());
+        Ok(stats)
     }
-    Ok(())
 }
 
 /// Represents a filesystem rooted at a relative base directory.
 pub struct RelativeFs {
     /// The relative path from the base directory.
     pub base_dir: PathBuf,
+
+    cache: Arc<Mutex<Cache>>,
 }
 
 impl From<PathBuf> for RelativeFs {
     fn from(path: PathBuf) -> Self {
-        RelativeFs { base_dir: path }
+        RelativeFs {
+            base_dir: path,
+            cache: Arc::new(Mutex::new(Cache::new(NonZeroUsize::new(1000).unwrap()))),
+        }
     }
 }
 
@@ -114,12 +67,6 @@ impl RelativeFs {
         let mut full_path = self.base_dir.clone();
         let rel: PathBuf = relative.into();
         full_path.push(rel);
-        // for component in &relative.components {
-        //     if component !=
-        // std::path::Component::RootDir.as_os_str().to_str().unwrap() {
-        //         full_path.push(component);
-        //     }
-        // }
         full_path
     }
 
@@ -134,12 +81,18 @@ impl RelativeFs {
     ///   message.
     pub async fn browse_path(&self, path: &PortablePath) -> Result<Directory, Error> {
         let full_path = self.as_abs_path(path);
-
-        let mut items =
-            Self::list_directory_contents(&full_path).map_err(|e| Error::ReadError {
-                what: "list directory".into(),
-                how: e.to_string(),
-            })?;
+        let mut items = Vec::new();
+        for item in DirWalker::walk_dir(
+            full_path,
+            self.base_dir.clone(),
+            self.cache.clone(),
+            20,
+            Some(0),
+        )
+        .await?
+        {
+            items.push(DirectoryEntry::try_from(&item)?);
+        }
 
         // Sort: directories first, then files, both alphabetically
         items.sort_by(|a, b| match (a.stats.is_directory, b.stats.is_directory) {
@@ -164,17 +117,14 @@ impl RelativeFs {
     /// * `Result<DirectoryEntries, Error>` - The directory entries or an error
     ///   message.
     pub async fn recurse_path(&self, path: &PortablePath) -> Result<Vec<SyncItem>, Error> {
-        let (tx, mut rx) = mpsc::channel(100);
-        let base_dir = self.base_dir.clone();
-        let full_path = self.as_abs_path(path);
-        let x =
-            tokio::spawn(async move { recurse_path_sender_err(base_dir, full_path, tx, 20).await });
-        let mut items = Vec::new();
-        while let Some(mut item) = rx.recv().await {
-            items.append(&mut item);
-        }
-        x.await.unwrap()?;
-        Ok(items)
+        DirWalker::walk_dir(
+            self.as_abs_path(path),
+            self.base_dir.clone(),
+            self.cache.clone(),
+            20,
+            None,
+        )
+        .await
     }
 
     /// Exchanges file deltas by sending SyncItem objects for the given
@@ -189,77 +139,22 @@ impl RelativeFs {
         delta: DeltaExchange,
         chunk_size: usize,
     ) {
-        let base_dir = self.base_dir.clone();
         let full_path = self.as_abs_path(&delta.dest);
+        let strip_prefix = if let Some(parent) = delta.dest.parent() {
+            self.as_abs_path(&parent)
+        } else {
+            full_path.clone()
+        };
         debug!(
             "exchange_deltas base_dir: {} full_path:{} dest:{}",
-            base_dir.display(),
+            self.base_dir.display(),
             full_path.display(),
             delta.dest
         );
-        _ = recurse_path_sender_err(base_dir, full_path, tx, chunk_size).await;
-    }
-
-    /// Lists the contents of a directory and returns their metadata.
-    ///
-    /// # Arguments
-    /// * `full_path` - The path to the directory to list.
-    ///
-    /// # Returns
-    /// * `Result<Vec<FileStat>, String>` - A vector of file statistics or an
-    ///   error message.
-    fn list_directory_contents(full_path: &Path) -> Result<Vec<DirectoryEntry>, Error> {
-        if !full_path.exists() {
-            return Err(Error::InvalidArgument("Path does not exist".to_string()));
+        let dir_walker = DirWalker::create(strip_prefix, self.cache.clone(), chunk_size, None, tx);
+        if let Err(e) = dir_walker.walk_dir_stream(&full_path).await {
+            error!("exchange_deltas error: {}", e);
         }
-
-        if !full_path.is_dir() {
-            return Err(Error::InvalidArgument(
-                "Path is not a directory".to_string(),
-            ));
-        }
-
-        let mut items = Vec::new();
-
-        info!("full path: {}", full_path.display());
-        // Read directory contents
-        let entries = read_dir(full_path).map_err(|e| Error::ReadError {
-            what: "directory".into(),
-            how: e.to_string(),
-        })?;
-
-        for entry in entries {
-            let entry = entry.map_err(|e| Error::ReadError {
-                what: "entry".into(),
-                how: e.to_string(),
-            })?;
-
-            let metadata = entry.metadata().map_err(|e| Error::ReadError {
-                what: "metadata".into(),
-                how: e.to_string(),
-            })?;
-
-            let relative_path = entry.file_name();
-
-            let modified = metadata.modified().map_err(|e| Error::ReadError {
-                what: "modified time".into(),
-                how: e.to_string(),
-            })?;
-
-            trace!(
-                "relative_path: {}, is_directory: {}, size: {}, modified: {}",
-                relative_path.display(),
-                metadata.is_dir(),
-                metadata.len(),
-                format_system_time(modified)
-            );
-            items.push(DirectoryEntry {
-                name: relative_path.to_str().unwrap().to_owned(),
-                stats: (&metadata).into(),
-            });
-        }
-        trace!("line: {} items: {:?}", line!(), items);
-        Ok(items)
     }
 
     async fn create_all(&self, path: &PortablePath) -> Result<(), String> {
@@ -292,12 +187,15 @@ impl RelativeFs {
         if full_path.exists() && !overwrite {
             return Err(Error::FileExists(full_path.to_string_lossy().to_string()));
         }
-        self.create_all(&path.parent().unwrap())
-            .await
-            .map_err(|e| Error::CreateFailed {
-                what: path.parent().unwrap().to_string(),
-                how: e,
-            })?;
+
+        if let Some(parent) = path.parent() {
+            self.create_all(&parent)
+                .await
+                .map_err(|e| Error::CreateFailed {
+                    what: path.parent().unwrap().to_string(),
+                    how: e,
+                })?;
+        }
         tokio::fs::write(&full_path, data)
             .await
             .map_err(|e| Error::WriteFailed {
@@ -307,7 +205,7 @@ impl RelativeFs {
         let mtime = parse_system_time(&stats.mtime)?;
         let full_path_clone = full_path.clone();
         // Update mtime of the file if stats provided
-        tokio::task::spawn_blocking(move || -> Result<(), std::io::Error> {
+        let ret = tokio::task::spawn_blocking(move || -> Result<(), std::io::Error> {
             let file = std::fs::File::options()
                 .append(true)
                 .open(&full_path_clone)?;
@@ -321,7 +219,11 @@ impl RelativeFs {
         .map_err(|e| Error::WriteFailed {
             what: full_path.to_str().unwrap().into(),
             how: e.to_string(),
-        })
+        });
+        if ret.is_ok() {
+            self.get_cache().put(path.clone(), stats.clone());
+        }
+        ret
     }
 
     /// Deletes the file at the specified path.
@@ -333,12 +235,16 @@ impl RelativeFs {
         if full_path.is_dir() {
             return Err(Error::InvalidArgument("Path is a directory".to_string()));
         }
-        tokio::fs::remove_file(&full_path)
+        let ret = tokio::fs::remove_file(&full_path)
             .await
             .map_err(|e| Error::DeleteFailed {
                 what: full_path.to_str().unwrap().into(),
                 how: e.to_string(),
-            })
+            });
+        if ret.is_ok() {
+            self.get_cache().pop(path);
+        }
+        ret
     }
 
     /// Reads the contents of the file at the specified path.
@@ -357,18 +263,30 @@ impl RelativeFs {
                 how: e.to_string(),
             })
     }
+
+    fn get_cache(&'_ self) -> MutexGuard<'_, Cache> {
+        self.cache.lock().unwrap()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::time::SystemTime;
+
+    use tokio::sync::mpsc;
+
     use super::*;
+    use crate::Sha256Builder;
+    use crate::Sha256String;
     use crate::TestRoot;
+    use crate::cache::CacheStats;
+    use crate::format_system_time;
+    use crate::test_utils::TEMP_FILES;
     #[tokio::test]
     async fn test_recurse_path() {
         let root = TestRoot::new(std::thread::current().name()).await.unwrap();
-        let fs = RelativeFs {
-            base_dir: root.root.path().to_path_buf(),
-        };
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
 
         let r = fs
             .recurse_path(&PortablePath::try_from(&Path::new("").to_owned()).unwrap())
@@ -377,5 +295,225 @@ mod tests {
 
         println!("r: {r:#?}");
         root.are_synced(&r).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_browse_path() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+
+        // Browse the directory
+        let portable_path = PortablePath::try_from(&Path::new("").to_owned()).unwrap();
+        let directory = fs.browse_path(&portable_path).await.unwrap();
+
+        // Assert the directory contains the file
+        let mut entries: HashSet<String> = ["file1.txt", "file2.txt", "dir1", "dir3"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(directory.items.len(), 4);
+        for entry in &directory.items {
+            println!("entry name: {}", entry.name);
+            assert!(entries.remove(&entry.name));
+        }
+        assert!(entries.is_empty());
+        root.match_entries(&directory);
+    }
+
+    async fn get_deltaa(path: &str) -> HashSet<String> {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+
+        // Set up the channel
+        let (tx, mut rx) = mpsc::channel(10);
+        let delta = DeltaExchange {
+            dest: PortablePath::try_from(&Path::new(path).to_owned()).unwrap(),
+            deltas: vec![],
+        };
+
+        // Call exchange_deltas
+        fs.exchange_deltas(tx, delta, 10).await;
+
+        // Assert the channel received the correct SyncItem
+        let mut received_items = Vec::new();
+        while let Some(items) = rx.recv().await {
+            received_items.extend(items);
+        }
+        println!("received_items: {:#?}", received_items);
+        let mut received_files = HashSet::new();
+        received_items.iter().for_each(|i| {
+            received_files.insert(i.path.to_string());
+        });
+        received_files
+    }
+
+    #[tokio::test]
+    async fn test_exchange_deltas_rootdir() {
+        let expected_files = get_deltaa("").await;
+        let mut files_found = 0;
+        for file in TEMP_FILES {
+            files_found += 1;
+            assert!(
+                expected_files.contains(file.0),
+                "{:?} Missing file: {} ",
+                expected_files,
+                file.0
+            );
+        }
+        assert_eq!(
+            files_found,
+            expected_files.len(),
+            "Expected files: {:?}",
+            expected_files
+        );
+    }
+
+    #[tokio::test]
+    async fn test_exchange_deltas_subdir() {
+        let expected_files = get_deltaa("dir1").await;
+        let mut files_found = 0;
+        for file in TEMP_FILES {
+            if file.0.contains("dir1") && file.0 != "dir1" {
+                files_found += 1;
+                assert!(
+                    expected_files.contains(file.0),
+                    "{:?} Missing file: {} ",
+                    expected_files,
+                    file.0
+                );
+            }
+        }
+        assert_eq!(
+            files_found,
+            expected_files.len(),
+            "Expected files: {:?}",
+            expected_files
+        );
+    }
+
+    async fn write_file(fs: &RelativeFs, portable_path: &PortablePath, data: &[u8]) -> FileStat {
+        let modified = SystemTime::now();
+        let stats = FileStat {
+            size: data.len() as u64,
+            mtime: format_system_time(modified),
+            is_directory: false,
+            sha256: Some(
+                data.sha256_build()
+                    .await
+                    .unwrap()
+                    .sha256_string()
+                    .await
+                    .unwrap(),
+            ),
+        };
+
+        fs.write(portable_path, data, true, &stats).await.unwrap();
+        stats
+    }
+
+    #[tokio::test]
+    async fn test_write() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+
+        let fpath: &[&str] = &["test_file.txt"];
+        let portable_path = PortablePath::try_from(fpath).unwrap();
+        let data: &[u8] = b"Hello, world!";
+        let stats = write_file(&fs, &portable_path, data).await;
+
+        // Assert the file exists and contains the correct data
+        let full_path = fs.as_abs_path(&portable_path);
+        assert!(full_path.exists());
+        let contents = tokio::fs::read(&full_path).await.unwrap();
+        assert_eq!(contents, data);
+        let metadata = tokio::fs::metadata(&full_path).await.unwrap();
+        assert_eq!(metadata.len(), data.len() as u64);
+        assert_eq!(
+            parse_system_time(&stats.mtime).unwrap(),
+            metadata.modified().unwrap()
+        );
+        assert_eq!(
+            stats.sha256.as_ref().unwrap(),
+            &data
+                .sha256_build()
+                .await
+                .unwrap()
+                .sha256_string()
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_file() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+
+        // Create a test file
+        let portable_path = PortablePath::try_from(&Path::new("test_file.txt").to_owned()).unwrap();
+        let full_path = fs.as_abs_path(&portable_path);
+        tokio::fs::write(&full_path, b"Hello, world!")
+            .await
+            .unwrap();
+
+        // Delete the file
+        fs.delete_file(&portable_path).await.unwrap();
+
+        // Assert the file no longer exists
+        assert!(!full_path.exists());
+    }
+
+    fn check_len(cache: &Cache, expected_len: u64) {
+        let len = cache.len();
+        if len != expected_len {
+            cache.dump_keys();
+        }
+        assert_eq!(len, expected_len);
+    }
+
+    #[tokio::test]
+    async fn test_cache() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+
+        let mut cstats = CacheStats::default();
+        check_len(&fs.get_cache(), 0);
+        check_len(&fs.get_cache(), 0);
+        assert_eq!(fs.get_cache().stats(), &cstats);
+
+        let fpath: &[&str] = &["test_file.txt"];
+        let portable_path = PortablePath::try_from(fpath).unwrap();
+        let data: &[u8] = b"Hello, world!";
+        let stats = write_file(&fs, &portable_path, data).await;
+        assert_eq!(fs.get_cache().stats(), &cstats);
+
+        assert_eq!(fs.get_cache().get(&portable_path).unwrap(), &stats);
+        check_len(&fs.get_cache(), 1);
+        cstats.hits += 1;
+        assert_eq!(fs.get_cache().stats(), &cstats);
+
+        fs.delete_file(&portable_path).await.unwrap();
+        check_len(&fs.get_cache(), 0);
+        assert_eq!(fs.get_cache().stats(), &cstats);
+        assert_eq!(fs.get_cache().get(&portable_path), None);
+        cstats.misses += 1;
+        assert_eq!(fs.get_cache().stats(), &cstats);
+
+        let _ = fs
+            .browse_path(&PortablePath::try_from(&PathBuf::from("")).unwrap())
+            .await;
+        check_len(&fs.get_cache(), 4);
+        cstats.misses += 4;
+        assert_eq!(fs.get_cache().stats(), &cstats);
+
+        let old_len = fs.get_cache().len();
+        let _ = fs
+            .recurse_path(&PortablePath::try_from(&PathBuf::from("")).unwrap())
+            .await
+            .unwrap();
+        check_len(&fs.get_cache(), root.files.len() as u64);
+        cstats.hits += old_len;
+        cstats.misses += root.files.len() as u64 - old_len as u64;
+        assert_eq!(fs.get_cache().stats(), &cstats);
     }
 }

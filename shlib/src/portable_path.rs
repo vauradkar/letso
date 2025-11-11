@@ -29,19 +29,11 @@ where
 }
 
 /// Represents a filesystem path as a vector of its portable components.
-#[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq, Hash, Eq)]
 pub struct PortablePath {
     /// The components of the portable path as a vector of strings.
     #[serde(deserialize_with = "deserialize_components")]
     components: Vec<String>,
-}
-
-impl PortablePath {
-    /// Returns the last component of the portable path, typically the file or
-    /// directory name.
-    pub fn basename(&self) -> Option<&str> {
-        self.components.last().map(|s| s.as_str())
-    }
 }
 
 impl Display for PortablePath {
@@ -52,14 +44,16 @@ impl Display for PortablePath {
 }
 
 impl PortablePath {
-    fn get_file_stat(&self) -> Result<Option<FileStat>, Error> {
+    /// Returns the last component of the portable path, typically the file or
+    /// directory name.
+    pub fn basename(&self) -> Option<&str> {
+        self.components.last().map(|s| s.as_str())
+    }
+
+    async fn get_file_stat(&self) -> Result<Option<FileStat>, Error> {
         let path: PathBuf = self.into();
         if path.exists() {
-            let metadata = path.metadata().map_err(|e| Error::ReadError {
-                what: "metadata".into(),
-                how: e.to_string(),
-            })?;
-            Ok(Some(FileStat::from(&metadata)))
+            Ok(Some(FileStat::from_path(path.as_path()).await?))
         } else {
             Ok(None)
         }
@@ -69,10 +63,10 @@ impl PortablePath {
     /// # Returns
     /// * `Result<Lookup, Error>` - The lookup result containing the path and
     ///   its metadata, or an error message.
-    pub fn lookup(&self) -> Result<SyncItem, Error> {
+    pub async fn lookup(&self) -> Result<SyncItem, Error> {
         Ok(SyncItem {
             path: self.clone(),
-            stats: self.get_file_stat()?,
+            stats: self.get_file_stat().await?,
         })
     }
 

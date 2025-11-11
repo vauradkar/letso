@@ -4,11 +4,13 @@ name = "shlib"
 version.workspace = true
 
 [dependencies]
-async-walkdir = { workspace = true }
+async-fs = { version = "2.2.0" }
+async-recursion = { version = "1.1.1" }
 chrono = { workspace = true }
 env_logger = { workspace = true }
 futures-lite = { workspace = true }
 log = { workspace = true }
+lru = { version = "0.16.2" }
 poem = { workspace = true }
 poem-openapi = { workspace = true }
 serde = { workspace = true }
@@ -18,6 +20,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
+async-walkdir = { workspace = true }
 tempdir = { workspace = true }
 
 [lints]

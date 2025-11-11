@@ -5,23 +5,28 @@ use std::time::SystemTime;
 use chrono::DateTime;
 use chrono::Utc;
 
+mod cache;
+
 mod errors;
-pub use errors::Error;
-
-mod relative_fs;
-pub use relative_fs::RelativeFs;
-
+mod hash;
+mod native_fs;
 mod portable_directory;
+mod portable_file;
+mod portable_path;
+mod relative_fs;
+
+pub(crate) use cache::Cache;
+pub use errors::Error;
+pub(crate) use hash::Sha256Builder;
+pub(crate) use hash::Sha256String;
+pub(crate) use native_fs::DirWalker;
 pub use portable_directory::DeltaExchange;
 pub use portable_directory::Directory;
 pub use portable_directory::DirectoryEntry;
 pub use portable_directory::SyncItem;
-
-mod portable_file;
 pub use portable_file::FileStat;
-
-mod portable_path;
 pub use portable_path::PortablePath;
+pub use relative_fs::RelativeFs;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
