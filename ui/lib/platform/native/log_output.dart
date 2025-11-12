@@ -8,29 +8,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class PlatformLogOutput implements AbstractLogOutput {
   late File file;
-  late FileOutput fileOutput;
+  late AdvancedFileOutput fileOutput;
   int logSize;
   PlatformLogOutput(this.logSize);
 
   @override
   Future<void> clear() async {
     file.writeAsStringSync('');
+    await initWithOverride(true);
+  }
+
+  Future<void> initWithOverride(bool overrideExisting) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final logsDir = '${directory.path}/logs';
+    final logFileName = 'app_log.txt';
+    file = File("$logsDir/$logFileName");
+    fileOutput = AdvancedFileOutput(
+      path: logsDir,
+      latestFileName: logFileName,
+      maxFileSizeKB: 1024,
+      maxRotatedFilesCount: 2,
+    );
+    return fileOutput.init();
   }
 
   @override
   Future<void> init() async {
-    final directory = await getApplicationDocumentsDirectory();
-    file = File('${directory.path}/app.log');
-    if (!await file.exists()) {
-      await file.create(recursive: true);
-    }
-    if (await file.length() > 1024 * 1024) {
-      var raf = await file.open(mode: FileMode.write);
-      await raf.truncate(0);
-      await raf.close();
-    }
-    fileOutput = FileOutput(file: file);
-    return fileOutput.init();
+    await initWithOverride(false);
   }
 
   @override

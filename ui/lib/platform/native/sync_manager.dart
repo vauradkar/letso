@@ -117,11 +117,13 @@ class SyncManager implements AbstractSyncManager {
     }
 
     for (var item in recvd.keys) {
-      logger.d('Received SyncItem: $item');
+      logger.d('Received SyncItem: $item ${recvd[item]?.stats?.toJson()}');
     }
     final files = toSync.values.toList();
+    logger.d(
+      '${files.isEmpty ? 'No' : files.length} files to sync for path: ${path.src}',
+    );
     if (files.isEmpty) {
-      logger.d('No files to sync for path: ${path.src}');
       return UploadResults();
     }
     return await uploadManager.uploadFiles(files, path.dest, path.src);
