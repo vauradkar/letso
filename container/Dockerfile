@@ -30,6 +30,7 @@ FROM backend-deps AS backend-builder
 
 # Copy the source code now (this invalidates the cache after Stage 1 if code changes)
 COPY . .
+RUN touch shlib/src/lib.rs server/src/main.rs
 
 # Build the Rust backend
 # This will reuse the dependencies built in Stage 1, making this step much faster
