@@ -513,7 +513,7 @@ mod tests {
             .unwrap();
         check_len(&fs.get_cache(), root.files.len() as u64);
         cstats.hits += old_len;
-        cstats.misses += root.files.len() as u64 - old_len as u64;
+        cstats.misses += root.files.len() as u64 - old_len;
         assert_eq!(fs.get_cache().stats(), &cstats);
     }
 }
