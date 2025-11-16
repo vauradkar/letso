@@ -20,6 +20,12 @@ class UploadResults {
     failureCount += other.failureCount;
     errors.addAll(other.errors);
   }
+
+  void logAll() {
+    for (var e in errors) {
+      logger.e(e);
+    }
+  }
 }
 
 class UploadManager {
@@ -149,6 +155,7 @@ class UploadManager {
         bytes: bytes,
       );
       var res = await api.uploadFile(platformFile, destDir, bytes, file.stats!);
+      res.fold(ifLeft: (e) => logger.e(e), ifRight: (s) => {});
 
       results.successCount += 1;
       _syncStatus.removeFile(bytes.length);

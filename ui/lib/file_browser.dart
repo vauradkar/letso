@@ -209,6 +209,7 @@ class _FileBrowserState extends State<FileBrowser> {
             var (syncPath, result) = await widget.appState.uploadManager
                 .selectAndSyncDirectory(widget.directory.currentPath);
             var res = await result;
+            res.logAll();
             if (syncPath != null) {
               var settings = Settings();
               await settings.load();
