@@ -7,11 +7,11 @@ use clap::Parser;
 pub struct Args {
     /// Where the files are uploaded to or displayed from.
     #[arg(short = 'r', long)]
-    pub base_dir: PathBuf,
+    pub upload_root: PathBuf,
 
     /// Static html directory to serve.
     #[arg(short, long)]
-    pub app_dir: PathBuf,
+    pub ui_dir: Option<PathBuf>,
 
     /// Host/bind address.
     /// Defaults to localhost.

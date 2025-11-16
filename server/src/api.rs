@@ -165,8 +165,8 @@ mod tests {
     ) -> TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>> {
         let app_state = Arc::new(
             AppState::try_from(&Args {
-                base_dir: temp_dir.to_path_buf(),
-                app_dir: Path::new(".").to_path_buf(),
+                upload_root: temp_dir.to_path_buf(),
+                ui_dir: None,
                 bind: "localhost".into(),
                 port: 8080,
                 buffer_items: 10,

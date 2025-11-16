@@ -25,15 +25,15 @@ pub(crate) struct UploadFileRequest {
 }
 
 pub struct AppState {
-    base_dir: RelativeFs,
-    pub(crate) app_dir: PathBuf,
+    upload_root: RelativeFs,
+    pub(crate) ui_dir: Option<PathBuf>,
     pub buffer_items: usize,
     pub chunk_count: usize,
 }
 
 impl AppState {
     pub async fn browse_path(&self, path: &PortablePath) -> Result<Directory, Error> {
-        let mut entries = self.base_dir.browse_path(path).await?;
+        let mut entries = self.upload_root.browse_path(path).await?;
         entries.current_path = path.clone();
         Ok(entries)
     }
@@ -52,7 +52,7 @@ impl AppState {
             "Received file: {filename} Content-Type: {content_type} Upload path: {} stats: {:?}",
             path, form.stats
         );
-        self.base_dir
+        self.upload_root
             .write(
                 &path,
                 &form.file.into_vec().await.unwrap(),
@@ -66,13 +66,13 @@ impl AppState {
 
     pub async fn delete_files(&self, paths: &[PortablePath]) -> Result<(), Error> {
         for path in paths {
-            self.base_dir.delete_file(path).await?;
+            self.upload_root.delete_file(path).await?;
         }
         Ok(())
     }
 
     pub async fn read_file(&self, path: &PortablePath) -> Result<Vec<u8>, Error> {
-        self.base_dir.read_file(path).await
+        self.upload_root.read_file(path).await
     }
 
     pub async fn exchange_deltas(
@@ -81,7 +81,9 @@ impl AppState {
         delta: shlib::DeltaExchange,
         chunk_size: usize,
     ) {
-        self.base_dir.exchange_deltas(tx, delta, chunk_size).await
+        self.upload_root
+            .exchange_deltas(tx, delta, chunk_size)
+            .await
     }
 }
 
@@ -89,25 +91,28 @@ impl TryFrom<&Args> for AppState {
     type Error = String;
 
     fn try_from(args: &Args) -> std::result::Result<Self, Self::Error> {
-        let base_dir = args
-            .base_dir
+        let upload_root = args
+            .upload_root
             .clone()
             .canonicalize()
-            .map_err(|e| format!("Failed to canonicalize base_dir: {e}"))?;
-        let app_dir = args
-            .app_dir
+            .map_err(|e| format!("Failed to canonicalize upload_root: {e}"))?;
+        let ui_dir = args
+            .ui_dir
             .clone()
-            .canonicalize()
-            .map_err(|e| format!("Failed to canonicalize app_dir: {e}"))?;
+            .map(|p| {
+                p.canonicalize()
+                    .map_err(|e| format!("Failed to canonicalize ui_dir: {e}"))
+            })
+            .transpose()?;
 
         // Ensure uploads directory exists
-        if !base_dir.exists() {
-            std::fs::create_dir_all(&base_dir)
+        if !upload_root.exists() {
+            std::fs::create_dir_all(&upload_root)
                 .map_err(|e| format!("Failed to create upload directory: {e}"))?;
         }
         Ok(AppState {
-            base_dir: base_dir.into(),
-            app_dir,
+            upload_root: upload_root.into(),
+            ui_dir,
             buffer_items: args.buffer_items,
             chunk_count: args.chunk_count,
         })

@@ -44,13 +44,12 @@ async fn main() {
 
     let api_service = OpenApiService::new(Api, "Hello World", "1.0").server(api_root);
     let ui = api_service.swagger_ui();
-    let static_endpoint = StaticFilesEndpoint::new(config.app_dir.clone()).index_file("index.html");
-    let app = Route::new()
-        .nest(API_ROOT, api_service)
-        .nest("/", static_endpoint)
-        .nest(DOCS_ROOT, ui)
-        .with(Tracing)
-        .data(Arc::new(config));
+    let mut route = Route::new().nest(API_ROOT, api_service).nest(DOCS_ROOT, ui);
+    if let Some(ui_dir) = &config.ui_dir {
+        let static_endpoint = StaticFilesEndpoint::new(ui_dir.clone()).index_file("index.html");
+        route = route.nest("/", static_endpoint);
+    }
+    let app = route.with(Tracing).data(Arc::new(config));
 
     Server::new(TcpListener::bind(bind_address))
         .run(app)

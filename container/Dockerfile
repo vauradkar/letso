@@ -82,4 +82,4 @@ VOLUME /data
 EXPOSE 2284
 
 # Set entrypoint
-ENTRYPOINT ["/letso/bin/server", "--base-dir", "/data/", "--app-dir", "/letso/ui/", "--port", "2284", "--bind", "0.0.0.0"]
+ENTRYPOINT ["/letso/bin/server", "--upload-root", "/data/", "--ui-dir", "/letso/ui/", "--port", "2284", "--bind", "0.0.0.0"]
