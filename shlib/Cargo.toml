@@ -3,9 +3,13 @@ edition.workspace = true
 name = "shlib"
 version.workspace = true
 
+[features]
+test_utils = ["async-walkdir", "similar", "tempdir"]
+
 [dependencies]
 async-fs = { version = "2.2.0" }
 async-recursion = { version = "1.1.1" }
+async-walkdir = { workspace = true, optional = true }
 chrono = { workspace = true }
 env_logger = { workspace = true }
 futures-lite = { workspace = true }
@@ -16,12 +20,14 @@ poem-openapi = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+similar = { version = "2.7.0", optional = true }
+tempdir = { workspace = true, optional = true }
+
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-async-walkdir = { workspace = true }
-tempdir = { workspace = true }
+shlib = { path = ".", features = ["test_utils"] }
 
 [lints]
 workspace = true

@@ -28,9 +28,11 @@ pub use portable_file::FileStat;
 pub use portable_path::PortablePath;
 pub use relative_fs::RelativeFs;
 
-#[cfg(test)]
+#[cfg(feature = "test_utils")]
 pub(crate) mod test_utils;
-#[cfg(test)]
+#[cfg(feature = "test_utils")]
+pub use test_utils::FileRep;
+#[cfg(feature = "test_utils")]
 pub use test_utils::TestRoot;
 
 /// Formats a file size in bytes into a human-readable string (e.g., KB, MB).

@@ -26,10 +26,7 @@ impl TryFrom<&SyncItem> for DirectoryEntry {
                 what: item.path.to_string(),
             })?
             .to_string();
-        let stats = item.stats.clone().ok_or(Error::ReadError {
-            what: "failed to lookup stats".to_owned(),
-            how: "none found".to_owned(),
-        })?;
+        let stats = item.stats.clone();
         Ok(DirectoryEntry { name, stats })
     }
 }
@@ -51,7 +48,7 @@ pub struct SyncItem {
     /// The full path of the file.
     pub path: PortablePath,
     /// Metadata if the file exists.
-    pub stats: Option<FileStat>,
+    pub stats: FileStat,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

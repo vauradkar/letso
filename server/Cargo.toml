@@ -16,3 +16,11 @@ tokio-stream = { workspace = true }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+poem = { workspace = true, features = ["test"] }
+reqwest = { version = "0.12.24", features = ["json", "multipart"] }
+serde_json = { workspace = true }
+shlib = { path = "../shlib", features = ["test_utils"] }
+tempdir = { workspace = true }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }

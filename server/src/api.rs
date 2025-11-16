@@ -19,6 +19,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use crate::app_state::AppState;
 use crate::app_state::UploadFileRequest;
+
 pub(crate) struct Api;
 
 static API_VERSION: &str = "1";
@@ -125,5 +126,174 @@ impl Api {
         Ok(Attachment::new(file_data)
             .attachment_type(AttachmentType::Attachment)
             .filename(path.0.basename().unwrap_or("downloaded_file")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use std::sync::Arc;
+
+    use poem::EndpointExt;
+    use poem::Route;
+    use poem::middleware::AddDataEndpoint;
+    use poem::middleware::Tracing;
+    use poem::middleware::TracingEndpoint;
+    use poem::test::TestClient;
+    use poem::test::TestForm;
+    use poem::test::TestFormField;
+    use poem_openapi::OpenApiService;
+    use shlib::FileRep;
+    use shlib::TestRoot;
+    use tempdir::TempDir;
+
+    use super::*;
+    use crate::app_state::AppState;
+    use crate::args::Args;
+
+    async fn setup_app() -> (
+        TempDir,
+        TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>>,
+    ) {
+        let temp_dir = TempDir::new("").unwrap();
+        let client = setup_app_with_dir(temp_dir.path()).await;
+        (temp_dir, client)
+    }
+
+    async fn setup_app_with_dir(
+        temp_dir: &Path,
+    ) -> TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>> {
+        let app_state = Arc::new(
+            AppState::try_from(&Args {
+                base_dir: temp_dir.to_path_buf(),
+                app_dir: Path::new(".").to_path_buf(),
+                bind: "localhost".into(),
+                port: 8080,
+                buffer_items: 10,
+                chunk_count: 5,
+            })
+            .unwrap(),
+        );
+        if let Err(e) = tracing_subscriber::fmt()
+            .with_env_filter("poem=warn")
+            .try_init()
+        {
+            println!("tracing maybe initialized by other test. Err: {}", e);
+        }
+        // Create the API instance
+        let api_service = OpenApiService::new(Api, "Hello World", "1.0");
+        let app = Route::new()
+            .nest("/api", api_service)
+            .with(Tracing)
+            .data(app_state);
+        TestClient::new(app)
+    }
+
+    async fn upload_file(
+        client: &TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>>,
+        file_path: &str,
+        dest_path: &PortablePath,
+        overwrite: bool,
+        file_rep: &FileRep,
+    ) -> poem::test::TestResponse {
+        let filename = Path::new(file_path).file_name().unwrap().to_str().unwrap();
+
+        let stats_json = serde_json::to_string(&file_rep.stats).unwrap();
+
+        client
+            .post("/api/upload/file")
+            .multipart(
+                TestForm::new()
+                    .field(
+                        TestFormField::bytes(file_rep.contents.as_slice())
+                            .filename(filename)
+                            .name("file"),
+                    )
+                    .text("path", serde_json::to_string(dest_path).unwrap())
+                    .text("overwrite", overwrite.to_string())
+                    .text("stats", stats_json),
+            )
+            .send()
+            .await
+    }
+
+    #[tokio::test]
+    async fn test_upload_file() {
+        let local_root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let (remote_root, client) = setup_app().await;
+
+        for (relative_path, file_rep) in &local_root.files {
+            if file_rep.stats.is_directory {
+                continue;
+            }
+
+            let dest = if let Some(parent) = relative_path.parent() {
+                PortablePath::try_from(&parent.to_owned()).unwrap()
+            } else {
+                let fpath: &[&str] = &[];
+                PortablePath::try_from(fpath).unwrap()
+            };
+            let response = upload_file(
+                &client,
+                &local_root.root.path().join(relative_path).to_string_lossy(),
+                &dest,
+                true,
+                file_rep,
+            )
+            .await;
+            response.assert_status_is_ok();
+            let response_text = response.0.into_body().into_string().await.unwrap();
+            assert_eq!(response_text, "File uploaded successfully!");
+        }
+
+        let diff = local_root.compare(remote_root.path()).unwrap();
+        assert!(
+            diff.is_none(),
+            "local and remote dir diff:\n{}",
+            diff.unwrap()
+        );
+
+        // Verify the file was saved
+        for (relative_path, file_rep) in &local_root.files {
+            println!(
+                "Verifying uploaded file: {} {:?}",
+                relative_path.display(),
+                file_rep.stats
+            );
+            if file_rep.stats.is_directory {
+                continue;
+            }
+
+            let uploaded_file_path = remote_root.path().join(relative_path);
+            assert!(uploaded_file_path.exists());
+            let found = tokio::fs::read(&uploaded_file_path).await.unwrap();
+            assert_eq!(found, file_rep.contents);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_are_synced() {
+        let local_root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let client = setup_app_with_dir(local_root.root.path()).await;
+
+        let mut deltas = vec![];
+        for (relative_path, file_rep) in &local_root.files {
+            let pp = PortablePath::try_from(relative_path).unwrap();
+            deltas.push(SyncItem {
+                path: pp,
+                stats: file_rep.stats.clone(),
+            });
+        }
+        let response = client
+            .post("/api/browse/exchange_deltas")
+            .body_json(&DeltaExchange {
+                dest: PortablePath::try_from(&[] as &[&str]).unwrap(),
+                deltas,
+            })
+            .send()
+            .await;
+        response.assert_status_is_ok();
+        let stream = response.0.into_body().into_string().await.unwrap();
+        assert_eq!(stream, "");
     }
 }

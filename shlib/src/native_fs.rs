@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::Cache;
 use crate::Error;
+use crate::FileStat;
 use crate::PortablePath;
 use crate::SyncItem;
 use crate::relative_fs::lookup_or_load;
@@ -20,6 +22,7 @@ pub(crate) struct DirWalker {
     chunk_size: usize,
     max_depth: Option<usize>,
     tx: Sender<Vec<SyncItem>>,
+    lookup: HashMap<PathBuf, FileStat>,
 }
 
 impl DirWalker {
@@ -29,6 +32,7 @@ impl DirWalker {
         chunk_size: usize,
         max_depth: Option<usize>,
         tx: Sender<Vec<SyncItem>>,
+        lookup: HashMap<PathBuf, FileStat>,
     ) -> Self {
         Self {
             strip_prefix: strip_prefix.as_ref().to_path_buf(),
@@ -36,6 +40,7 @@ impl DirWalker {
             chunk_size,
             max_depth,
             tx,
+            lookup,
         }
     }
 
@@ -50,7 +55,14 @@ impl DirWalker {
         let strip_prefix = strip_prefix.as_ref().to_path_buf();
         let (tx, mut rx) = mpsc::channel(100);
         let x = tokio::spawn(async move {
-            let dir_walker = DirWalker::create(strip_prefix, cache, chunk_size, max_depth, tx);
+            let dir_walker = DirWalker::create(
+                strip_prefix,
+                cache,
+                chunk_size,
+                max_depth,
+                tx,
+                HashMap::new(),
+            );
             dir_walker.walk_dir_stream(&full_path).await
         });
         let mut items = Vec::new();
@@ -132,14 +144,21 @@ impl DirWalker {
             let portable_path = PortablePath::try_from(&relative_path)?;
             let stats = lookup_or_load(self.cache.clone(), &entry_path, &portable_path).await?;
             let is_dir = stats.is_directory;
-            self.push_and_send(
-                chunks,
-                SyncItem {
-                    path: portable_path,
-                    stats: Some(stats),
-                },
-            )
-            .await?;
+            let skip_push = self
+                .lookup
+                .get(&relative_path)
+                .map(|s| s == &stats)
+                .unwrap_or(false);
+            if !skip_push {
+                self.push_and_send(
+                    chunks,
+                    SyncItem {
+                        path: portable_path,
+                        stats,
+                    },
+                )
+                .await?;
+            }
 
             if !is_dir {
                 continue;

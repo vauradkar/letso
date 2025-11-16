@@ -50,12 +50,14 @@ impl PortablePath {
         self.components.last().map(|s| s.as_str())
     }
 
-    async fn get_file_stat(&self) -> Result<Option<FileStat>, Error> {
+    async fn get_file_stat(&self) -> Result<FileStat, Error> {
         let path: PathBuf = self.into();
         if path.exists() {
-            Ok(Some(FileStat::from_path(path.as_path()).await?))
+            Ok(FileStat::from_path(path.as_path()).await?)
         } else {
-            Ok(None)
+            Err(Error::InvalidPath {
+                what: format!("path doesn't exists:{}", path.display()),
+            })
         }
     }
     /// Looks up the metadata for the current portable path.
@@ -91,6 +93,21 @@ impl PortablePath {
     /// * `component` - The path component to add.
     pub fn push(&mut self, component: &str) {
         self.components.push(component.to_owned());
+    }
+
+    /// Join two PortablePaths together into a new PortablePath.
+    ///
+    /// # Arguments
+    /// * `other` - The other PortablePath to join with.
+    ///
+    /// # Returns
+    /// * `PortablePath` - A new PortablePath representing the joined path.
+    pub fn join(&self, other: &PortablePath) -> PortablePath {
+        let mut ret = self.clone();
+        for comp in &other.components {
+            ret.push(comp);
+        }
+        ret
     }
 }
 

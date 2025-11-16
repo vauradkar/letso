@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
@@ -145,13 +146,25 @@ impl RelativeFs {
         } else {
             full_path.clone()
         };
+        let mut lookup: HashMap<PathBuf, FileStat> = HashMap::new();
+        for item in delta.deltas {
+            let stats = item.stats;
+            lookup.insert((&item.path).into(), stats);
+        }
         debug!(
             "exchange_deltas base_dir: {} full_path:{} dest:{}",
             self.base_dir.display(),
             full_path.display(),
             delta.dest
         );
-        let dir_walker = DirWalker::create(strip_prefix, self.cache.clone(), chunk_size, None, tx);
+        let dir_walker = DirWalker::create(
+            strip_prefix,
+            self.cache.clone(),
+            chunk_size,
+            None,
+            tx,
+            lookup,
+        );
         if let Err(e) = dir_walker.walk_dir_stream(&full_path).await {
             error!("exchange_deltas error: {}", e);
         }
@@ -294,7 +307,7 @@ mod tests {
             .unwrap();
 
         println!("r: {r:#?}");
-        root.are_synced(&r).unwrap();
+        root.are_synced(&r).await.unwrap();
     }
 
     #[tokio::test]
@@ -320,15 +333,22 @@ mod tests {
         root.match_entries(&directory);
     }
 
-    async fn get_deltaa(path: &str) -> HashSet<String> {
+    async fn get_deltas(path: &str, sync_items: Vec<SyncItem>) -> (HashSet<String>, Vec<SyncItem>) {
         let root = TestRoot::new(std::thread::current().name()).await.unwrap();
         let fs = RelativeFs::from(root.root.path().to_path_buf());
+        get_deltas_with(path, sync_items, &fs).await
+    }
 
+    async fn get_deltas_with(
+        path: &str,
+        sync_items: Vec<SyncItem>,
+        fs: &RelativeFs,
+    ) -> (HashSet<String>, Vec<SyncItem>) {
         // Set up the channel
         let (tx, mut rx) = mpsc::channel(10);
         let delta = DeltaExchange {
             dest: PortablePath::try_from(&Path::new(path).to_owned()).unwrap(),
-            deltas: vec![],
+            deltas: sync_items,
         };
 
         // Call exchange_deltas
@@ -344,12 +364,12 @@ mod tests {
         received_items.iter().for_each(|i| {
             received_files.insert(i.path.to_string());
         });
-        received_files
+        (received_files, received_items)
     }
 
     #[tokio::test]
     async fn test_exchange_deltas_rootdir() {
-        let expected_files = get_deltaa("").await;
+        let (expected_files, _) = get_deltas("", vec![]).await;
         let mut files_found = 0;
         for file in TEMP_FILES {
             files_found += 1;
@@ -370,7 +390,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exchange_deltas_subdir() {
-        let expected_files = get_deltaa("dir1").await;
+        let (expected_files, _) = get_deltas("dir1", vec![]).await;
         let mut files_found = 0;
         for file in TEMP_FILES {
             if file.0.contains("dir1") && file.0 != "dir1" {
@@ -391,6 +411,33 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_exchange_deltas_sends_empty() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let fs = RelativeFs::from(root.root.path().to_path_buf());
+        let (expected_files, sync_items) = get_deltas_with("dir1", vec![], &fs).await;
+        let mut files_found = 0;
+        for file in TEMP_FILES {
+            if file.0.contains("dir1") && file.0 != "dir1" {
+                files_found += 1;
+                assert!(
+                    expected_files.contains(file.0),
+                    "{:?} Missing file: {} ",
+                    expected_files,
+                    file.0
+                );
+            }
+        }
+        assert_eq!(
+            files_found,
+            expected_files.len(),
+            "Expected files: {:?}",
+            expected_files
+        );
+        let (expected_files, sync_items) = get_deltas_with("dir1", sync_items, &fs).await;
+        assert!(expected_files.is_empty());
+        assert!(sync_items.is_empty());
+    }
     async fn write_file(fs: &RelativeFs, portable_path: &PortablePath, data: &[u8]) -> FileStat {
         let modified = SystemTime::now();
         let stats = FileStat {
