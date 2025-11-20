@@ -175,7 +175,8 @@ class UploadManager {
     for (var c in pp.split(
       pp.dirname(pp.relative(file.toString(), from: baseDir)),
     )) {
-      if (c.isNotEmpty) {
+      assert(c != "..", "relative path returned for $file");
+      if (c.isNotEmpty && c != ".") {
         destDir.add(c);
       }
     }

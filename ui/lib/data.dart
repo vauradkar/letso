@@ -90,9 +90,29 @@ class PortablePath extends Equatable {
     return destDir;
   }
 
-  factory PortablePath.fromJson(Map<String, dynamic> json) =>
-      _$PortablePathFromJson(json);
-  Map<String, dynamic> toJson() => _$PortablePathToJson(this);
+  // factory PortablePath.fromJson(Map<String, dynamic> json) =>
+  //     _$PortablePathFromJson(json);
+  // Map<String, dynamic> toJson() => _$PortablePathToJson(this);
+
+  // TODO: This is a hack to work around a api limitation. Fix api
+  factory PortablePath.fromJson(Map<String, dynamic> json) {
+    // Remote sends all the paths in relative psth. Add "/" here.
+    final ret = _$PortablePathFromJson(json);
+    if (ret._components.isNotEmpty && ret._components[0] != "/") {
+      ret._components.insert(0, "/");
+    }
+    return ret;
+  }
+
+  // TODO: This is a hack to work around a api limitation. Fix api
+  Map<String, dynamic> toJson() {
+    // Remote receives all the paths in relative psth. Remove "/" here.
+    final send = PortablePath.clone(this);
+    if (send._components.isNotEmpty && send._components[0] == "/") {
+      send._components.removeAt(0);
+    }
+    return _$PortablePathToJson(send);
+  }
 
   @override
   List<Object> get props => [_components];

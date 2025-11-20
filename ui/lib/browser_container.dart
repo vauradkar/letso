@@ -86,7 +86,17 @@ class _BrowserContainerState extends State<BrowserContainer> {
             onItemDoubleTap: _onItemDoubleTap,
             onAncestorTap: _onAncestorTap,
           );
-          final directory = snapshot.data!.orNull()!;
+          var directory = snapshot.data!.orNull()!;
+          // TODO: the server modifies the currentDirectory relative to root
+          //       Fix this on server side.
+          if (currentDirectory.getAncestor(0) == "/" &&
+              directory.currentPath.getAncestor(0) != "/") {
+            final cp = PortablePath(["/"]);
+            for (int i = 0; i < directory.currentPath.length; i++) {
+              cp.add(directory.currentPath.getAncestor(i)!);
+            }
+            directory = Directory(currentPath: cp, items: directory.items);
+          }
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.appState.updateItemsCount(directory.items.length);
           });

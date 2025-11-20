@@ -163,7 +163,7 @@ class _FileBrowserState extends State<FileBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    return buildInternal(context);
+    return _buildDirectoryPathButtons(context);
   }
 
   Widget _buildButton(Widget icon, String label, VoidCallback onPressed) {
@@ -248,7 +248,7 @@ class _FileBrowserState extends State<FileBrowser> {
     );
   }
 
-  Widget buildInternal(BuildContext context) {
+  Widget _buildDirectoryPathButtons(BuildContext context) {
     List<Widget> ancestors = [];
     for (int i = 0; i < widget.directory.currentPath.length; i++) {
       String ancestor = widget.directory.currentPath.getAncestor(i)!;
