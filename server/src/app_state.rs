@@ -1,15 +1,16 @@
 use std::path::PathBuf;
 
 use log::debug;
+use pfs::Directory;
+use pfs::Error;
+use pfs::FileInfo;
+use pfs::FileStat;
+use pfs::Path;
+use pfs::PortableFs;
+use pfs::RecursiveDirList;
 use poem_openapi::Multipart;
 use poem_openapi::types::multipart::JsonField;
 use poem_openapi::types::multipart::Upload;
-use shlib::Directory;
-use shlib::Error;
-use shlib::FileStat;
-use shlib::PortablePath;
-use shlib::RelativeFs;
-use shlib::SyncItem;
 use tokio::sync::mpsc::Sender;
 
 use crate::args::Args;
@@ -19,21 +20,21 @@ use crate::args::Args;
 pub(crate) struct UploadFileRequest {
     #[oai(rename = "file")] // Rename the field to "file" in the form data
     file: Upload, // Represents the uploaded file
-    pub path: JsonField<PortablePath>, // Path where the file should be uploaded
-    overwrite: bool,                   // Whether to overwrite existing files
-    stats: JsonField<FileStat>,        // Optional checksum field
+    pub path: JsonField<Path>,  // Path where the file should be uploaded
+    overwrite: bool,            // Whether to overwrite existing files
+    stats: JsonField<FileStat>, // Optional checksum field
 }
 
 pub struct AppState {
-    upload_root: RelativeFs,
+    upload_root: PortableFs,
     pub(crate) ui_dir: Option<PathBuf>,
     pub buffer_items: usize,
     pub chunk_count: usize,
 }
 
 impl AppState {
-    pub async fn browse_path(&self, path: &PortablePath) -> Result<Directory, Error> {
-        let mut entries = self.upload_root.browse_path(path).await?;
+    pub async fn browse_path(&self, path: &Path) -> Result<Directory, Error> {
+        let mut entries = self.upload_root.read_dir(path).await?;
         entries.current_path = path.clone();
         Ok(entries)
     }
@@ -64,21 +65,21 @@ impl AppState {
         Ok(())
     }
 
-    pub async fn delete_files(&self, paths: &[PortablePath]) -> Result<(), Error> {
+    pub async fn delete_files(&self, paths: &[Path]) -> Result<(), Error> {
         for path in paths {
             self.upload_root.delete_file(path).await?;
         }
         Ok(())
     }
 
-    pub async fn read_file(&self, path: &PortablePath) -> Result<Vec<u8>, Error> {
+    pub async fn read_file(&self, path: &Path) -> Result<Vec<u8>, Error> {
         self.upload_root.read_file(path).await
     }
 
     pub async fn exchange_deltas(
         &self,
-        tx: Sender<Vec<SyncItem>>,
-        delta: shlib::DeltaExchange,
+        tx: Sender<Vec<FileInfo>>,
+        delta: RecursiveDirList,
         chunk_size: usize,
     ) {
         self.upload_root
@@ -111,7 +112,7 @@ impl TryFrom<&Args> for AppState {
                 .map_err(|e| format!("Failed to create upload directory: {e}"))?;
         }
         Ok(AppState {
-            upload_root: upload_root.into(),
+            upload_root: PortableFs::with_cache(upload_root),
             ui_dir,
             buffer_items: args.buffer_items,
             chunk_count: args.chunk_count,

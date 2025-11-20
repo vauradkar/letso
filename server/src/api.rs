@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
 use log::debug;
+use pfs::Directory;
+use pfs::FileInfo;
+use pfs::Path;
+use pfs::RecursiveDirList;
 use poem::Result;
 use poem::error::InternalServerError;
 use poem::web::Data;
@@ -10,10 +14,6 @@ use poem_openapi::payload::AttachmentType;
 use poem_openapi::payload::EventStream;
 use poem_openapi::payload::Json;
 use poem_openapi::payload::PlainText;
-use shlib::DeltaExchange;
-use shlib::Directory;
-use shlib::PortablePath;
-use shlib::SyncItem;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -54,7 +54,7 @@ impl Api {
     async fn list_directory(
         &self,
         config: Data<&Arc<AppState>>,
-        path: Json<PortablePath>,
+        path: Json<Path>,
     ) -> Result<Json<Directory>> {
         debug!("Received path: {:?}", path.0);
         config
@@ -72,9 +72,9 @@ impl Api {
     async fn exchange_deltas(
         &self,
         config: Data<&Arc<AppState>>,
-        delta: Json<DeltaExchange>,
-    ) -> EventStream<ReceiverStream<Vec<SyncItem>>> {
-        debug!("exchange_deltas SyncItem: {:?}", delta.0);
+        delta: Json<RecursiveDirList>,
+    ) -> EventStream<ReceiverStream<Vec<FileInfo>>> {
+        debug!("exchange_deltas FileInfo: {:?}", delta.0);
         let (tx, rx) = mpsc::channel(config.buffer_items);
         let state = config.0.clone();
         tokio::spawn(async move {
@@ -103,7 +103,7 @@ impl Api {
     async fn delete_files(
         &self,
         config: Data<&Arc<AppState>>,
-        paths: Json<Vec<PortablePath>>,
+        paths: Json<Vec<Path>>,
     ) -> Result<PlainText<&'static str>> {
         config
             .delete_files(&paths.0)
@@ -116,7 +116,7 @@ impl Api {
     async fn download_file(
         &self,
         config: Data<&Arc<AppState>>,
-        path: Json<PortablePath>,
+        path: Json<Path>,
     ) -> Result<Attachment<Vec<u8>>> {
         let file_data = config
             .read_file(&path.0)
@@ -131,9 +131,12 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::Path as StdPath;
     use std::sync::Arc;
 
+    use pfs::FileNode;
+    use pfs::RecursiveDirList;
+    use pfs::TestRoot;
     use poem::EndpointExt;
     use poem::Route;
     use poem::middleware::AddDataEndpoint;
@@ -143,8 +146,6 @@ mod tests {
     use poem::test::TestForm;
     use poem::test::TestFormField;
     use poem_openapi::OpenApiService;
-    use shlib::FileRep;
-    use shlib::TestRoot;
     use tempdir::TempDir;
 
     use super::*;
@@ -161,7 +162,7 @@ mod tests {
     }
 
     async fn setup_app_with_dir(
-        temp_dir: &Path,
+        temp_dir: &StdPath,
     ) -> TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>> {
         let app_state = Arc::new(
             AppState::try_from(&Args {
@@ -192,11 +193,15 @@ mod tests {
     async fn upload_file(
         client: &TestClient<AddDataEndpoint<TracingEndpoint<Route>, Arc<AppState>>>,
         file_path: &str,
-        dest_path: &PortablePath,
+        dest_path: &Path,
         overwrite: bool,
-        file_rep: &FileRep,
+        file_rep: &FileNode,
     ) -> poem::test::TestResponse {
-        let filename = Path::new(file_path).file_name().unwrap().to_str().unwrap();
+        let filename = StdPath::new(file_path)
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
 
         let stats_json = serde_json::to_string(&file_rep.stats).unwrap();
 
@@ -228,10 +233,10 @@ mod tests {
             }
 
             let dest = if let Some(parent) = relative_path.parent() {
-                PortablePath::try_from(&parent.to_owned()).unwrap()
+                Path::try_from(&parent.to_owned()).unwrap()
             } else {
                 let fpath: &[&str] = &[];
-                PortablePath::try_from(fpath).unwrap()
+                Path::try_from(fpath).unwrap()
             };
             let response = upload_file(
                 &client,
@@ -278,16 +283,16 @@ mod tests {
 
         let mut deltas = vec![];
         for (relative_path, file_rep) in &local_root.files {
-            let pp = PortablePath::try_from(relative_path).unwrap();
-            deltas.push(SyncItem {
+            let pp = Path::try_from(relative_path).unwrap();
+            deltas.push(FileInfo {
                 path: pp,
                 stats: file_rep.stats.clone(),
             });
         }
         let response = client
             .post("/api/browse/exchange_deltas")
-            .body_json(&DeltaExchange {
-                dest: PortablePath::try_from(&[] as &[&str]).unwrap(),
+            .body_json(&RecursiveDirList {
+                base_dir: Path::try_from(&[] as &[&str]).unwrap(),
                 deltas,
             })
             .send()

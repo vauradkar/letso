@@ -8,9 +8,9 @@ clap = { version = "4.5.43", features = ["derive"] }
 env_logger = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
+pfs = { workspace = true }
 poem = { workspace = true }
 poem-openapi = { workspace = true }
-shlib = { path = "../shlib" }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 
@@ -18,9 +18,9 @@ tokio-stream = { workspace = true }
 workspace = true
 
 [dev-dependencies]
+pfs = { workspace = true, features = ["test_utils"] }
 poem = { workspace = true, features = ["test"] }
 reqwest = { version = "0.12.24", features = ["json", "multipart"] }
 serde_json = { workspace = true }
-shlib = { path = "../shlib", features = ["test_utils"] }
 tempdir = { workspace = true }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
