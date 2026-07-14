@@ -44,3 +44,8 @@
 /ui/android/app/debug
 /ui/android/app/profile
 /ui/android/app/release
+
+# Log output written by tests that mock path_provider to the cwd
+/ui/logs/
+
+/.claude/settings.local.json

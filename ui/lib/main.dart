@@ -16,11 +16,31 @@ import 'package:package_info_plus/package_info_plus.dart';
 typedef AppStateLoader = Future<AppState> Function();
 
 /// The default production loader — builds [AppState] from live network calls.
-Future<AppState> _defaultLoadAppState() async {
+///
+/// [createApi] is overridable in tests so the server-unreachable fallback
+/// path can be exercised without making a real network call.
+Future<AppState> defaultLoadAppState({
+  Api Function(Settings settings) createApi = Api.create,
+}) async {
   final settings = await Settings.loadSettings();
-  final Api api = Api.create(settings);
-  final serverVersion = await api.getServerVersion();
-  final apiVersion = await api.getApiVersion();
+  final Api api = createApi(settings);
+
+  String serverVersion = 'unknown';
+  String apiVersion = 'unknown';
+
+  if (settings.isConfigured()) {
+    try {
+      serverVersion = await api.getServerVersion();
+    } catch (e) {
+      logger.e('Failed to load server version: $e');
+    }
+    try {
+      apiVersion = await api.getApiVersion();
+    } catch (e) {
+      logger.e('Failed to load API version: $e');
+    }
+  }
+
   final packageInfo = await PackageInfo.fromPlatform();
   return AppState(
     settings: settings,
@@ -53,7 +73,7 @@ class MyApp extends StatefulWidget {
   /// Override the loader in tests to avoid real network calls.
   final AppStateLoader loader;
 
-  const MyApp({super.key, this.loader = _defaultLoadAppState});
+  const MyApp({super.key, this.loader = defaultLoadAppState});
 
   @override
   State<MyApp> createState() => _MyAppState();
