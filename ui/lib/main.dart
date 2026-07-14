@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:letso/api.dart';
 import 'package:letso/app_info_widget.dart';
@@ -10,6 +11,26 @@ import 'package:letso/settings_page.dart';
 import 'package:letso/status_bar.dart';
 import 'package:letso/upload_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+/// Signature for the function that loads [AppState] from the network/storage.
+typedef AppStateLoader = Future<AppState> Function();
+
+/// The default production loader — builds [AppState] from live network calls.
+Future<AppState> _defaultLoadAppState() async {
+  final settings = await Settings.loadSettings();
+  final Api api = Api.create(settings);
+  final serverVersion = await api.getServerVersion();
+  final apiVersion = await api.getApiVersion();
+  final packageInfo = await PackageInfo.fromPlatform();
+  return AppState(
+    settings: settings,
+    api: api,
+    uploadManager: UploadManager(api: api),
+    serverVersion: serverVersion,
+    apiVersion: apiVersion,
+    packageInfo: packageInfo,
+  );
+}
 
 // This is the main entry point for the Flutter application.
 void main() async {
@@ -29,22 +50,40 @@ void main() async {
 
 // Define the main application widget.
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  /// Override the loader in tests to avoid real network calls.
+  final AppStateLoader loader;
+
+  const MyApp({super.key, this.loader = _defaultLoadAppState});
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
+  // Resolved AppState — null until the first future completes.
   AppState? appState;
+  late Future<AppState> _appStateFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _appStateFuture = widget.loader();
+  }
+
+  /// Creates a fresh future (e.g. after settings change). This is the only
+  /// legitimate place to call the loader after [initState].
+  void _reloadAppState() {
+    setState(() {
+      _appStateFuture = widget.loader();
+    });
+  }
+
   void showSettingsPage(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SettingsPage(
-          onChange: () {
-            setState(() {});
-          },
+          onChange: _reloadAppState,
           appState: appState,
         ),
       ),
@@ -78,20 +117,20 @@ class _MyAppState extends State<MyApp> {
     } else if (snapshot.hasError) {
       return Center(child: Text('Error: ${snapshot.error}'));
     } else if (snapshot.hasData) {
-      AppState appState = snapshot.data as AppState;
-      if (appState.settings.isConfigured()) {
+      // Cache the resolved AppState so showSettingsPage can use it
+      // synchronously (before the next build).
+      appState = snapshot.data as AppState;
+      if (appState!.settings.isConfigured()) {
         return Column(
           children: [
-            Expanded(child: BrowserContainer(appState: appState)),
-            StatusBar(appState: appState),
+            Expanded(child: BrowserContainer(appState: appState!)),
+            StatusBar(appState: appState!),
           ],
         );
       } else {
         return Scaffold(
           body: SettingsPage(
-            onChange: () {
-              setState(() {});
-            },
+            onChange: _reloadAppState,
             appState: appState,
           ),
         );
@@ -101,23 +140,13 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<AppState> _loadAppState() async {
-    final settings = await Settings.loadSettings();
-    Api api = Api.create(settings);
-    final serverVersion = await api.getServerVersion();
-    final apiVersion = await api.getApiVersion();
-    final packageInfo = await PackageInfo.fromPlatform();
-    AppState state = AppState(
-      settings: settings,
-      api: api,
-      uploadManager: UploadManager(api: api),
-      serverVersion: serverVersion,
-      apiVersion: apiVersion,
-      packageInfo: packageInfo,
-    );
-    appState = state;
-    return state;
-  }
+  /// Exposed for testing only. Triggers a reload of [AppState] by calling
+  /// the injected [loader] and rebuilding the widget tree.
+  ///
+  /// In production code prefer the private [_reloadAppState] which is invoked
+  /// through [SettingsPage.onChange].
+  @visibleForTesting
+  void reloadAppStateForTesting() => _reloadAppState();
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +168,7 @@ class _MyAppState extends State<MyApp> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => FutureBuilder(
-                    future: _loadAppState(),
+                    future: _appStateFuture,
                     builder: _buildAppInfoWidget,
                   ),
                 ),
@@ -149,7 +178,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ],
       ),
-      body: FutureBuilder(future: _loadAppState(), builder: _buildMainContent),
+      body: FutureBuilder(future: _appStateFuture, builder: _buildMainContent),
     );
   }
 
