@@ -155,9 +155,17 @@ class UploadManager {
         bytes: bytes,
       );
       var res = await api.uploadFile(platformFile, destDir, bytes, file.stats!);
-      res.fold(ifLeft: (e) => logger.e(e), ifRight: (s) => {});
+      res.fold(
+        ifLeft: (e) {
+          logger.e(e);
+          results.failureCount += 1;
+          results.errors.add(e);
+        },
+        ifRight: (s) {
+          results.successCount += 1;
+        },
+      );
 
-      results.successCount += 1;
       _syncStatus.removeFile(bytes.length);
       await Future.delayed(const Duration(seconds: 1));
     }
