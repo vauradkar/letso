@@ -1,0 +1,58 @@
+[D] TIME: 2026-07-14T22:32:41.735837 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/A9xJ5K/test_file.txt to upload to /dest/A9xJ5K
+[38;5;196m[E][0m TIME: 2026-07-14T22:32:41.745495 Upload failed
+[D] TIME: 2026-07-14T22:33:01.978903 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/1XG61y/test_file.txt to upload to /dest/1XG61y
+[38;5;196m[E][0m TIME: 2026-07-14T22:33:01.987574 Upload failed
+[D] TIME: 2026-07-14T22:33:12.872010 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/WinEWl/test_file.txt to upload to /dest/WinEWl
+[38;5;196m[E][0m TIME: 2026-07-14T22:33:12.880804 Upload failed
+[D] TIME: 2026-07-14T22:33:21.608579 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/78Qyz4/test_file.txt to upload to /dest/78Qyz4
+[38;5;196m[E][0m TIME: 2026-07-14T22:33:21.616919 Upload failed
+[D] TIME: 2026-07-14T22:33:42.753332 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/1XMsg2/test_file.txt to upload to /dest/1XMsg2
+[38;5;196m[E][0m TIME: 2026-07-14T22:33:42.762122 Upload failed
+[D] TIME: 2026-07-14T22:33:46.671612 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/KbV6Fi/test_file.txt to upload to /dest/KbV6Fi
+[38;5;196m[E][0m TIME: 2026-07-14T22:33:46.679638 Upload failed
+[D] TIME: 2026-07-14T22:34:02.846164 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/g4cJ1V/test_file.txt to upload to /dest/g4cJ1V
+[38;5;196m[E][0m TIME: 2026-07-14T22:34:02.854350 Upload failed
+[D] TIME: 2026-07-14T22:34:24.953439 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/ESY05H/test_file.txt to upload to /dest/ESY05H
+[38;5;196m[E][0m TIME: 2026-07-14T22:34:24.962582 Upload failed
+[D] TIME: 2026-07-14T22:34:44.058255 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/vRONyx/test_file.txt to upload to /dest/vRONyx
+[38;5;196m[E][0m TIME: 2026-07-14T22:34:44.066498 Upload failed
+[D] TIME: 2026-07-14T22:35:03.216656 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/hGspuV/test_file.txt to upload to /dest/hGspuV
+[38;5;196m[E][0m TIME: 2026-07-14T22:35:03.224704 Upload failed
+[D] TIME: 2026-07-14T22:35:40.089559 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/Jm5WyU/test_file.txt to upload to /dest/Jm5WyU
+[38;5;196m[E][0m TIME: 2026-07-14T22:35:40.097689 Upload failed
+[D] TIME: 2026-07-14T22:44:46.136649 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/KQImJL/test_file.txt to upload to /dest/KQImJL
+[38;5;196m[E][0m TIME: 2026-07-14T22:44:46.143909 Upload failed
+[D] TIME: 2026-07-14T22:44:47.173720 Uploading file: test_file.txt to /dest
+[D] TIME: 2026-07-14T22:45:30.433997 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/wc7xgp/test_file.txt to upload to /dest/wc7xgp
+[38;5;196m[E][0m TIME: 2026-07-14T22:45:30.441788 Upload failed
+[38;5;208m[W][0m TIME: 2026-07-14T22:45:31.457526 File test_file.txt has no data, skipping upload
+[D] TIME: 2026-07-14T22:45:31.458980 Uploading file: test_file.txt to /dest
+[D] TIME: 2026-07-14T22:45:56.792816 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/FKVRNa/test_file.txt to upload to /dest/FKVRNa
+[38;5;196m[E][0m TIME: 2026-07-14T22:45:56.801352 Upload failed
+[D] TIME: 2026-07-14T22:45:57.820097 Uploading file: test_file.txt to /dest
+[D] TIME: 2026-07-14T22:46:09.418669 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/jb0Wvn/test_file.txt to upload to /dest/jb0Wvn
+[38;5;196m[E][0m TIME: 2026-07-14T22:46:09.426946 Upload failed
+[D] TIME: 2026-07-14T22:46:10.445225 Uploading file: test_file.txt to /dest
+[D] TIME: 2026-07-14T22:46:34.064788 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/dvi40Y/test_file.txt to upload to /dest/dvi40Y
+[38;5;196m[E][0m TIME: 2026-07-14T22:46:34.073392 Upload failed
+[D] TIME: 2026-07-14T22:46:35.096266 Uploading file: test_file.txt to /dest
+[D] TIME: 2026-07-14T22:52:46.329278 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/2rpKXG/test_file.txt to upload to /dest/2rpKXG
+[38;5;196m[E][0m TIME: 2026-07-14T22:52:46.339001 Upload failed
+[D] TIME: 2026-07-14T22:58:03.041972 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/DuIe6Z/test_file.txt to upload to /dest/DuIe6Z
+[38;5;196m[E][0m TIME: 2026-07-14T22:58:03.051043 Upload failed
+[D] TIME: 2026-07-14T23:02:43.206972 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/RY5WEM/test_file.txt to upload to /dest/RY5WEM
+[38;5;196m[E][0m TIME: 2026-07-14T23:02:43.215160 Upload failed
+[D] TIME: 2026-07-15T07:07:47.384055 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/0I2c8m/test_file.txt to upload to /dest/0I2c8m
+[38;5;196m[E][0m TIME: 2026-07-15T07:07:47.392789 Upload failed
+[D] TIME: 2026-07-15T07:08:36.549784 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/LTx4Dl/test_file.txt to upload to /dest/LTx4Dl
+[38;5;196m[E][0m TIME: 2026-07-15T07:08:36.558643 Upload failed
+[D] TIME: 2026-07-15T07:15:22.990602 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/k1B091/test_file.txt to upload to /dest/k1B091
+[38;5;196m[E][0m TIME: 2026-07-15T07:15:22.999811 Upload failed
+[D] TIME: 2026-07-15T07:28:47.459723 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/Bz5bQr/test_file.txt to upload to /dest/Bz5bQr
+[38;5;196m[E][0m TIME: 2026-07-15T07:28:47.468737 Upload failed
+[38;5;196m[E][0m TIME: 2026-07-15T07:28:47.637616 Failed to load server version: Exception: Connection refused[D] TIME: 2026-07-15T07:34:35.342775 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/uD2fqd/test_file.txt to upload to /dest/uD2fqd
+[38;5;196m[E][0m TIME: 2026-07-15T07:34:35.350896 Upload failed
+[D] TIME: 2026-07-15T07:35:18.750656 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/5W3rHg/test_file.txt to upload to /dest/5W3rHg
+[38;5;196m[E][0m TIME: 2026-07-15T07:35:18.760177 Upload failed
+[D] TIME: 2026-07-15T07:35:37.937527 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/f8UGyW/test_file.txt to upload to /dest/f8UGyW
+[38;5;196m[E][0m TIME: 2026-07-15T07:35:37.946878 Upload failed

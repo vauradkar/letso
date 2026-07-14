@@ -40,7 +40,7 @@ class _BrowserContainerState extends State<BrowserContainer> {
     logger.d('Item tapped: ${item.name}');
     if (item.isDirectory) {
       setState(() {
-        currentDirectory.add(item.name);
+        currentDirectory = currentDirectory.add(item.name);
       });
     } else {
       logger.d('Tapped on file: ${item.name}');
@@ -91,9 +91,9 @@ class _BrowserContainerState extends State<BrowserContainer> {
           //       Fix this on server side.
           if (currentDirectory.getAncestor(0) == "/" &&
               directory.currentPath.getAncestor(0) != "/") {
-            final cp = PortablePath(["/"]);
+            var cp = const PortablePath(["/"]);
             for (int i = 0; i < directory.currentPath.length; i++) {
-              cp.add(directory.currentPath.getAncestor(i)!);
+              cp = cp.add(directory.currentPath.getAncestor(i)!);
             }
             directory = Directory(currentPath: cp, items: directory.items);
           }

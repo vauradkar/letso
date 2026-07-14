@@ -179,13 +179,13 @@ class UploadManager {
   ) {
     String baseDir = baseSrc.toString();
     PortablePath destDir = PortablePath.clone(dest);
-    destDir.add(pp.basename(baseDir));
+    destDir = destDir.add(pp.basename(baseDir));
     for (var c in pp.split(
       pp.dirname(pp.relative(file.toString(), from: baseDir)),
     )) {
       assert(c != "..", "relative path returned for $file");
       if (c.isNotEmpty && c != ".") {
-        destDir.add(c);
+        destDir = destDir.add(c);
       }
     }
     return destDir;

@@ -75,54 +75,47 @@ class PortablePath extends Equatable {
   const PortablePath(this._components);
 
   factory PortablePath.fromString(String s) {
-    List<String> components = s.startsWith('/') ? [] : ['/'];
-    components.addAll(s.split('/'));
-    return PortablePath(components);
+    // If it's absolute, s.split('/') starts with an empty string which we filter out.
+    // Ensure the root element "/" is preserved.
+    final List<String> components = s.startsWith('/') ? ['/'] : [];
+    components.addAll(s.split('/').where((c) => c.isNotEmpty));
+    return PortablePath(List.unmodifiable(components));
   }
 
   factory PortablePath.clone(PortablePath src) {
-    PortablePath destDir = PortablePath([]);
-    for (var c in src._components) {
-      if (c.isNotEmpty) {
-        destDir.add(c);
-      }
-    }
-    return destDir;
+    return PortablePath(List.unmodifiable(src._components));
   }
-
-  // factory PortablePath.fromJson(Map<String, dynamic> json) =>
-  //     _$PortablePathFromJson(json);
-  // Map<String, dynamic> toJson() => _$PortablePathToJson(this);
 
   // TODO: This is a hack to work around a api limitation. Fix api
   factory PortablePath.fromJson(Map<String, dynamic> json) {
-    // Remote sends all the paths in relative psth. Add "/" here.
+    // Remote sends all the paths in relative path. Add "/" here.
     final ret = _$PortablePathFromJson(json);
-    if (ret._components.isNotEmpty && ret._components[0] != "/") {
-      ret._components.insert(0, "/");
+    final List<String> newComponents = List.from(ret._components);
+    if (newComponents.isNotEmpty && newComponents[0] != "/") {
+      newComponents.insert(0, "/");
     }
-    return ret;
+    return PortablePath(List.unmodifiable(newComponents));
   }
 
   // TODO: This is a hack to work around a api limitation. Fix api
   Map<String, dynamic> toJson() {
-    // Remote receives all the paths in relative psth. Remove "/" here.
-    final send = PortablePath.clone(this);
-    if (send._components.isNotEmpty && send._components[0] == "/") {
-      send._components.removeAt(0);
+    // Remote receives all the paths in relative path. Remove "/" here.
+    final List<String> sendComponents = List.from(_components);
+    if (sendComponents.isNotEmpty && sendComponents[0] == "/") {
+      sendComponents.removeAt(0);
     }
-    return _$PortablePathToJson(send);
+    return _$PortablePathToJson(PortablePath(sendComponents));
   }
 
   @override
   List<Object> get props => [_components];
 
-  void add(String component) {
-    _components.add(component);
+  PortablePath add(String component) {
+    return PortablePath(List.unmodifiable([..._components, component]));
   }
 
   PortablePath subPath(int index) {
-    return PortablePath(_components.sublist(0, index + 1));
+    return PortablePath(List.unmodifiable(_components.sublist(0, index + 1)));
   }
 
   int get length => _components.length;
@@ -137,6 +130,11 @@ class PortablePath extends Equatable {
 
   @override
   String toString() {
+    // Custom join logic to avoid double-slashes when root is "/"
+    if (_components.isEmpty) return '';
+    if (_components[0] == '/') {
+      return '/${_components.skip(1).join('/')}';
+    }
     return _components.join('/');
   }
 }

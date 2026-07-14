@@ -131,7 +131,7 @@ class SyncManager implements AbstractSyncManager {
 
   Future<Map<String, SyncItem>> _startStreaming(SyncPath syncPath) async {
     PortablePath dest = PortablePath.clone(syncPath.dest);
-    dest.add(syncPath.src.getBasename()!);
+    dest = dest.add(syncPath.src.getBasename()!);
     DeltaRequest deltas = DeltaRequest(dest: dest, deltas: []);
     Map<String, SyncItem> result = {};
     try {
