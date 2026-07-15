@@ -57,7 +57,7 @@ class UploadManager {
     final List<PlatformFile> files = result.files;
 
     for (var file in files) {
-      if (file.bytes == null) {
+      if (kIsWeb && file.bytes == null) {
         logger.w('File ${file.name} has no data, skipping upload');
         continue;
       }
@@ -143,7 +143,8 @@ class UploadManager {
     UploadResults results = UploadResults();
     for (var file in files) {
       if (!await io.FileSystemEntity.isFile(file.path.toString())) {
-        continue; // Skip if not a file
+        _syncStatus.removeFile(file.stats!.size); // Not a file, undo addFile above
+        continue;
       }
       PortablePath destDir = buildDestDir(dest, src, file.path);
 
