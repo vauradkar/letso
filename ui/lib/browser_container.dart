@@ -27,11 +27,13 @@ class BrowserContainer extends StatefulWidget {
 
 class _BrowserContainerState extends State<BrowserContainer> {
   PortablePath currentDirectory = PortablePath(["/"]);
+  late Future<Either<String, Directory>> _browseFuture;
   late void Function() _appStateListener;
 
   @override
   void initState() {
     super.initState();
+    _browseFuture = widget.appState.api.browsePath(currentDirectory);
     _appStateListener = () {
       setState(() {});
     };
@@ -44,12 +46,22 @@ class _BrowserContainerState extends State<BrowserContainer> {
     super.dispose();
   }
 
+  void _navigateTo(PortablePath newDirectory) {
+    setState(() {
+      currentDirectory = newDirectory;
+      _browseFuture = widget.appState.api.browsePath(currentDirectory);
+    });
+  }
+
+  /// Exposed for testing only. Drives navigation the same way a directory
+  /// tap would, without depending on widget hit-testing.
+  @visibleForTesting
+  void navigateToForTesting(PortablePath path) => _navigateTo(path);
+
   void _onItemTap(DirectoryEntry item) {
     logger.d('Item tapped: ${item.name}');
     if (item.isDirectory) {
-      setState(() {
-        currentDirectory = currentDirectory.add(item.name);
-      });
+      _navigateTo(currentDirectory.add(item.name));
     } else {
       logger.d('Tapped on file: ${item.name}');
     }
@@ -70,16 +82,14 @@ class _BrowserContainerState extends State<BrowserContainer> {
       return;
     }
 
-    setState(() {
-      currentDirectory = currentDirectory.subPath(index);
-      logger.d('Current directory updated: $currentDirectory');
-    });
+    logger.d('Current directory updated: ${currentDirectory.subPath(index)}');
+    _navigateTo(currentDirectory.subPath(index));
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Either<String, Directory>>(
-      future: widget.appState.api.browsePath(currentDirectory),
+      future: _browseFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
