@@ -35,6 +35,11 @@ class UploadManager {
 
   UploadManager({required this.api});
 
+  /// Default number of uploads allowed to run concurrently. Chosen to give
+  /// a meaningful speedup for directories with many small files without
+  /// opening an unbounded number of connections/file handles at once.
+  static const int defaultUploadConcurrency = 4;
+
   bool get isUploading => _syncStatus.isUploading();
   int? get remainingFiles => _syncStatus.remainingFiles;
   int? get totalFiles => _syncStatus.totalFiles;
@@ -45,31 +50,53 @@ class UploadManager {
   void unregisterListener(Function listener) =>
       _syncStatus.unregisterListener(listener);
 
+  /// Runs [task] over [items], allowing up to [concurrency] tasks to be in
+  /// flight at once instead of awaiting them one at a time. Workers pull
+  /// from a shared index so a slow item never stalls the others' progress
+  /// the way fixed-size batching would.
+  Future<void> _runConcurrently<T>(
+    List<T> items,
+    int concurrency,
+    Future<void> Function(T item) task,
+  ) async {
+    if (items.isEmpty) return;
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (nextIndex < items.length) {
+        final item = items[nextIndex++];
+        await task(item);
+      }
+    }
+
+    final workerCount = concurrency < items.length
+        ? concurrency
+        : items.length;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+  }
+
   Future<void> _uploadPlatformFiles(
     final FilePickerResult? result,
-    final PortablePath dest,
-  ) async {
+    final PortablePath dest, {
+    int concurrency = defaultUploadConcurrency,
+  }) async {
     if (result == null || result.files.isEmpty) {
       logger.d('No files selected for upload');
       return;
     }
 
-    final List<PlatformFile> files = result.files;
-
-    for (var file in files) {
+    final List<PlatformFile> files = [];
+    for (var file in result.files) {
       if (kIsWeb && file.bytes == null) {
         logger.w('File ${file.name} has no data, skipping upload');
         continue;
       }
       _syncStatus.addFile(file.size);
+      files.add(file);
     }
 
-    for (var file in files) {
+    await _runConcurrently(files, concurrency, (file) async {
       late Uint8List bytes;
-      if (kIsWeb && file.bytes == null) {
-        logger.w('File ${file.name} has no data, skipping upload');
-        continue;
-      } else if (file.bytes == null) {
+      if (file.bytes == null) {
         bytes = await io.File(file.path!).readAsBytes();
       } else {
         bytes = file.bytes!;
@@ -82,17 +109,28 @@ class UploadManager {
         await FileStat.fromPickerFile(file),
       );
       _syncStatus.removeFile(file.size);
-    }
+    });
   }
 
-  Future<void> uploadFile(final PortablePath dest) async {
-    await _uploadPlatformFiles(await FilePicker.platform.pickFiles(), dest);
+  Future<void> uploadFile(
+    final PortablePath dest, {
+    int concurrency = defaultUploadConcurrency,
+  }) async {
+    await _uploadPlatformFiles(
+      await FilePicker.platform.pickFiles(),
+      dest,
+      concurrency: concurrency,
+    );
   }
 
-  Future<void> pickAndUploadFiles(final PortablePath dest) async {
+  Future<void> pickAndUploadFiles(
+    final PortablePath dest, {
+    int concurrency = defaultUploadConcurrency,
+  }) async {
     await _uploadPlatformFiles(
       await FilePicker.platform.pickFiles(allowMultiple: true),
       dest,
+      concurrency: concurrency,
     );
   }
 
@@ -133,17 +171,18 @@ class UploadManager {
   Future<UploadResults> uploadFiles(
     List<SyncItem> files,
     PortablePath dest,
-    PortablePath src,
-  ) async {
+    PortablePath src, {
+    int concurrency = defaultUploadConcurrency,
+  }) async {
     for (var file in files) {
       _syncStatus.addFile(file.stats!.size);
     }
 
     UploadResults results = UploadResults();
-    for (var file in files) {
+    await _runConcurrently(files, concurrency, (file) async {
       if (!await io.FileSystemEntity.isFile(file.path.toString())) {
         _syncStatus.removeFile(file.stats!.size); // Not a file, undo addFile above
-        continue;
+        return;
       }
       PortablePath destDir = buildDestDir(dest, src, file.path);
 
@@ -167,7 +206,7 @@ class UploadManager {
       );
 
       _syncStatus.removeFile(bytes.length);
-    }
+    });
     return results;
   }
 
