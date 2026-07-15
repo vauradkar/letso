@@ -132,7 +132,20 @@ class SyncManager implements AbstractSyncManager {
     return await uploadManager.uploadFiles(files, path.dest, path.src);
   }
 
-  Future<Map<String, SyncItem>> _startStreaming(SyncPath syncPath) async {
+  /// Exposed for testing only. Lets a test observe events as they're
+  /// parsed (via [onEvent]) rather than only once the whole map is
+  /// returned, to verify events are processed as their chunk arrives
+  /// rather than only after the full stream completes.
+  @visibleForTesting
+  Future<Map<String, SyncItem>> startStreamingForTesting(
+    SyncPath syncPath, {
+    void Function(Map<String, SyncItem> items)? onEvent,
+  }) => _startStreaming(syncPath, onEvent: onEvent);
+
+  Future<Map<String, SyncItem>> _startStreaming(
+    SyncPath syncPath, {
+    void Function(Map<String, SyncItem> items)? onEvent,
+  }) async {
     PortablePath dest = PortablePath.clone(syncPath.dest);
     dest = dest.add(syncPath.src.getBasename()!);
     DeltaRequest deltas = DeltaRequest(dest: dest, deltas: []);
@@ -141,30 +154,39 @@ class SyncManager implements AbstractSyncManager {
       final response = await api.exchangeDeltas(deltas);
 
       if (response.statusCode == 200) {
-        List<int> bytes = [];
-        // Listen to the stream and process chunks as they arrive
-        await for (var s in response.stream) {
-          bytes.addAll(s);
-        }
-        var chunk = utf8.decode(bytes);
-        // SSE format: "data: {json}\n\n"
-        // Split by double newline to get individual events
-        final events = chunk.split('\n\n');
+        // SSE format: "data: {json}\n\n". Decode incrementally (utf8.decoder
+        // correctly handles multi-byte characters split across chunks) and
+        // only buffer up to the next event boundary, rather than
+        // accumulating the entire response before parsing anything.
+        var buffer = '';
+        void processCompleteEvents() {
+          int boundary;
+          while ((boundary = buffer.indexOf('\n\n')) != -1) {
+            final event = buffer.substring(0, boundary);
+            buffer = buffer.substring(boundary + 2);
+            if (event.trim().isEmpty) continue;
 
-        for (var event in events) {
-          if (event.trim().isEmpty) continue;
-
-          // Extract JSON from "data: {json}" format
-          final lines = event.split('\n');
-          var (items, errors) = addLines(lines);
-          if (errors.isNotEmpty) {
-            logger.d(
-              "chunk size: ${chunk.length} events size ${events.length} event size: ${event.length} bytes: ${bytes.length}",
-            );
-            logger.d(chunk);
-            logger.d('Error parsing JSON: ${errors.toString()}');
+            final lines = event.split('\n');
+            var (items, errors) = addLines(lines);
+            if (errors.isNotEmpty) {
+              logger.d('event: $event');
+              logger.d('Error parsing JSON: ${errors.toString()}');
+            }
+            result.addAll(items);
+            if (items.isNotEmpty) {
+              onEvent?.call(items);
+            }
           }
-          result.addAll(items);
+        }
+
+        await for (var s in response.stream.transform(utf8.decoder)) {
+          buffer += s;
+          processCompleteEvents();
+        }
+        // The stream may end without a trailing "\n\n" after the final event.
+        if (buffer.trim().isNotEmpty) {
+          buffer += '\n\n';
+          processCompleteEvents();
         }
       } else {
         logger.e(
