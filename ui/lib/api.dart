@@ -118,7 +118,7 @@ class Api {
     }
   }
 
-  Future<http.StreamedResponse> exhcnageDeltas(DeltaRequest deltas) async {
+  Future<http.StreamedResponse> exchangeDeltas(DeltaRequest deltas) async {
     var client = http.Client();
     final uri = getUri(_settings, '/api/browse/exchange_deltas');
     var request = http.Request('POST', uri)

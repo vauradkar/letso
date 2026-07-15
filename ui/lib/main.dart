@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:letso/api.dart';
 import 'package:letso/app_info_widget.dart';
@@ -102,10 +101,8 @@ class _MyAppState extends State<MyApp> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SettingsPage(
-          onChange: _reloadAppState,
-          appState: appState,
-        ),
+        builder: (context) =>
+            SettingsPage(onChange: _reloadAppState, appState: appState),
       ),
     );
   }
@@ -115,7 +112,6 @@ class _MyAppState extends State<MyApp> {
       context,
       MaterialPageRoute(
         builder: (context) => LogViewer(
-          logMessages: logger.getLogs(),
           onClear: () {
             logger.clear();
           },
@@ -149,10 +145,7 @@ class _MyAppState extends State<MyApp> {
         );
       } else {
         return Scaffold(
-          body: SettingsPage(
-            onChange: _reloadAppState,
-            appState: appState,
-          ),
+          body: SettingsPage(onChange: _reloadAppState, appState: appState),
         );
       }
     } else {

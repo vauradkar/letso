@@ -13,13 +13,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:letso/api.dart';
 import 'package:letso/app_state.dart';
 import 'package:letso/main.dart';
-import 'package:letso/settings.dart';
-import 'package:letso/upload_manager.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 // ---------------------------------------------------------------------------
 // Mock / Fake declarations
@@ -31,56 +27,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// invocations of the callable object.
 class MockAppStateLoader extends Mock {
   Future<AppState> call();
-}
-
-/// Fake [Api] — satisfies the interface without making network calls.
-class FakeApi extends Fake implements Api {}
-
-/// Fake [UploadManager] — implements only the members touched by [AppState]
-/// and the widgets rendered while the app is in its loading state.
-class FakeUploadManager extends Fake implements UploadManager {
-  @override
-  bool get isUploading => false;
-  @override
-  int? get remainingFiles => null;
-  @override
-  int? get totalFiles => null;
-  @override
-  int? get remainingBytes => null;
-  @override
-  int? get totalBytes => null;
-  @override
-  void registerListener(Function listener) {}
-  @override
-  void unregisterListener(Function listener) {}
-}
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-/// Builds a minimal [AppState] with an empty server address (unconfigured).
-///
-/// The widget tree that renders in this state is just the loading indicator
-/// (if the Future is still pending) or the SettingsPage (once resolved).
-/// Using a [Completer]-controlled future keeps the widget in the loading
-/// state, avoiding any platform-plugin calls (SharedPreferences, etc.).
-AppState _makeAppState() {
-  final settings = Settings()..serverAddress = '';
-  return AppState(
-    settings: settings,
-    api: FakeApi(),
-    uploadManager: FakeUploadManager(),
-    serverVersion: '0.0.0',
-    apiVersion: '1',
-    packageInfo: PackageInfo(
-      appName: 'test',
-      packageName: 'com.test',
-      version: '1.0.0',
-      buildNumber: '1',
-      installerStore: null,
-    ),
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +50,7 @@ void main() {
     testWidgets(
       '1. loader is called exactly once on initial build',
       (tester) async {
-        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader)));
+        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader.call)));
 
         // initState() has already run — loader must have been called once.
         verify(() => mockLoader()).called(1);
@@ -114,7 +60,7 @@ void main() {
     testWidgets(
       '2. loader is NOT called again when the widget rebuilds via setState',
       (tester) async {
-        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader)));
+        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader.call)));
 
         // Consume the initial call so the verify below starts from a clean slate.
         verify(() => mockLoader()).called(1);
@@ -133,7 +79,7 @@ void main() {
     testWidgets(
       '3. loader IS called again after _reloadAppState() (e.g. settings saved)',
       (tester) async {
-        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader)));
+        await tester.pumpWidget(MaterialApp(home: MyApp(loader: mockLoader.call)));
 
         // Consume the first call.
         verify(() => mockLoader()).called(1);

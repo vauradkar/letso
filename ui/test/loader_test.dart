@@ -29,13 +29,16 @@ void main() {
       });
 
       // Mock path_provider for native logging.
-      const MethodChannel('plugins.flutter.io/path_provider')
-          .setMockMethodCallHandler((MethodCall methodCall) async {
-        if (methodCall.method == 'getApplicationDocumentsDirectory') {
-          return '.';
-        }
-        return null;
-      });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/path_provider'),
+        (MethodCall methodCall) async {
+          if (methodCall.method == 'getApplicationDocumentsDirectory') {
+            return '.';
+          }
+          return null;
+        },
+      );
       await logger.initLogger(logSize: 100);
 
       // Mock package_info_plus.

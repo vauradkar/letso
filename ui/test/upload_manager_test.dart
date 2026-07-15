@@ -46,14 +46,16 @@ void main() {
   });
 
   setUp(() async {
-    const MethodChannel(
-      'plugins.flutter.io/path_provider',
-    ).setMockMethodCallHandler((MethodCall methodCall) async {
-      if (methodCall.method == 'getApplicationDocumentsDirectory') {
-        return '.';
-      }
-      return null;
-    });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'getApplicationDocumentsDirectory') {
+          return '.';
+        }
+        return null;
+      },
+    );
 
     mockApi = MockApi();
     uploadManager = UploadManager(api: mockApi);

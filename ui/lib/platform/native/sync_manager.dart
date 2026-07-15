@@ -138,7 +138,7 @@ class SyncManager implements AbstractSyncManager {
     DeltaRequest deltas = DeltaRequest(dest: dest, deltas: []);
     Map<String, SyncItem> result = {};
     try {
-      final response = await api.exhcnageDeltas(deltas);
+      final response = await api.exchangeDeltas(deltas);
 
       if (response.statusCode == 200) {
         List<int> bytes = [];

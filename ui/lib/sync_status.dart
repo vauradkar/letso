@@ -1,5 +1,4 @@
 class SyncStatus {
-  bool _isUploading;
   int _remainingFiles;
   int _totalFiles;
   int _remainingBytes;
@@ -7,7 +6,6 @@ class SyncStatus {
   final List<Function> _syncListeners = [];
 
   SyncStatus({
-    bool isUploading = false,
     int remainingFiles = 0,
     int totalFiles = 0,
     int remainingBytes = 0,
@@ -15,26 +13,7 @@ class SyncStatus {
   }) : _totalBytes = totalBytes,
        _remainingBytes = remainingBytes,
        _totalFiles = totalFiles,
-       _remainingFiles = remainingFiles,
-       _isUploading = isUploading;
-
-  /// Calculate upload progress percentage (0.0 to 1.0)
-  double get uploadProgress {
-    if (!_isUploading) {
-      return 0.0;
-    }
-    if (_totalFiles == 0) return 1.0;
-    return (_totalFiles - _remainingFiles) / _totalFiles;
-  }
-
-  /// Calculate bytes progress percentage (0.0 to 1.0)
-  double get bytesProgress {
-    if (!_isUploading) {
-      return 0.0;
-    }
-    if (_totalBytes == 0) return 1.0;
-    return (_totalBytes - _remainingBytes) / _totalBytes;
-  }
+       _remainingFiles = remainingFiles;
 
   /// Format bytes into human readable format
   static String formatBytes(int bytes) {
@@ -56,13 +35,11 @@ class SyncStatus {
   int? get totalBytes => _totalBytes;
 
   void update({
-    bool? isUploading,
     int? remainingFiles,
     int? totalFiles,
     int? remainingBytes,
     int? totalBytes,
   }) {
-    _isUploading = isUploading ?? _isUploading;
     _remainingFiles += remainingFiles ?? 0;
     _totalFiles += totalFiles ?? 0;
     _remainingBytes += remainingBytes ?? 0;

@@ -5,14 +5,9 @@ import 'package:letso/logger_manager.dart';
 const String kFontFamily = 'FiraMonoNerdFont';
 
 class LogViewer extends StatelessWidget {
-  final Future<String> logMessages;
   final VoidCallback onClear;
 
-  const LogViewer({
-    super.key,
-    required this.logMessages,
-    required this.onClear,
-  });
+  const LogViewer({super.key, required this.onClear});
 
   @override
   Widget build(BuildContext context) {

@@ -42,8 +42,6 @@ class SettingsPageState extends State<SettingsPage> {
 
   // Asynchronously loads the server address and port from SharedPreferencesAsync.
   Future<void> _loadSettings() async {
-    // ignore: avoid_print
-    print('DEBUG _loadSettings called');
     await _settings.load();
 
     _serverAddressController.text = _settings.serverAddress;
