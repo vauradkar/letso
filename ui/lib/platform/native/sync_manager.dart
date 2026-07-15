@@ -43,44 +43,47 @@ Future<Map<String, SyncItem>> _getFileStats(String directoryPath) async {
     throw io.FileSystemException("Directory does not exist", directoryPath);
   }
 
-  Future<void> processDirectory(io.Directory dir) async {
-    await for (final entity in dir.list(recursive: true)) {
-      final stat = await entity.stat();
-      final path = entity.path;
-      FileStat? fileStat;
+  // dir.list(recursive: true) already walks the full subtree, so entities
+  // must not be re-listed manually or every subdirectory gets processed once
+  // per ancestor that also lists it (duplicate work, exponential in depth).
+  await for (final entity in directory.list(recursive: true)) {
+    final stat = await entity.stat();
+    final path = entity.path;
+    FileStat? fileStat;
 
-      if (entity is io.Directory) {
-        fileStat = FileStat(
-          size: stat.size,
-          mtime: stat.modified.toUtc().toIso8601String(),
-          isDirectory: true,
-          sha256: null,
-        );
-
-        // Recursively process subdirectory
-        await processDirectory(entity);
-      } else if (entity is io.File) {
-        // Calculate sha256 for files
-        final bytes = await entity.readAsBytes();
-        final hash = sha256.convert(bytes);
-        fileStat = FileStat(
-          size: stat.size,
-          mtime: stat.modified.toUtc().toIso8601String(),
-          isDirectory: false,
-          sha256: hash.toString(),
-        );
-      }
-
-      stats[p.relative(path, from: parent)] = SyncItem(
-        path: PortablePath.fromString(path),
-        stats: fileStat,
+    if (entity is io.Directory) {
+      fileStat = FileStat(
+        size: stat.size,
+        mtime: stat.modified.toUtc().toIso8601String(),
+        isDirectory: true,
+        sha256: null,
+      );
+    } else if (entity is io.File) {
+      // Calculate sha256 for files
+      final bytes = await entity.readAsBytes();
+      final hash = sha256.convert(bytes);
+      fileStat = FileStat(
+        size: stat.size,
+        mtime: stat.modified.toUtc().toIso8601String(),
+        isDirectory: false,
+        sha256: hash.toString(),
       );
     }
+
+    stats[p.relative(path, from: parent)] = SyncItem(
+      path: PortablePath.fromString(path),
+      stats: fileStat,
+    );
   }
 
-  await processDirectory(directory);
   return stats;
 }
+
+/// Exposed for testing only. [_getFileStats] is otherwise only reachable via
+/// [compute], which requires a top-level function.
+@visibleForTesting
+Future<Map<String, SyncItem>> getFileStatsForTesting(String directoryPath) =>
+    _getFileStats(directoryPath);
 
 class SyncManager implements AbstractSyncManager {
   final Api api;
