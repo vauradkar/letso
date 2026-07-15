@@ -31,14 +31,19 @@ class SettingsPageState extends State<SettingsPage> {
   final List<String> _logOutput = [];
   List<String> currentDirectory = ["."];
 
+  late Future<void> _loadSettingsFuture;
+
   @override
   void initState() {
     super.initState();
-    // Load saved settings when the widget is initialized.
+    // Load saved settings once when the widget is initialized.
+    _loadSettingsFuture = _loadSettings();
   }
 
   // Asynchronously loads the server address and port from SharedPreferencesAsync.
   Future<void> _loadSettings() async {
+    // ignore: avoid_print
+    print('DEBUG _loadSettings called');
     await _settings.load();
 
     _serverAddressController.text = _settings.serverAddress;
@@ -176,7 +181,7 @@ class SettingsPageState extends State<SettingsPage> {
         ),
 
         body: FutureBuilder<void>(
-          future: _loadSettings(),
+          future: _loadSettingsFuture,
           builder: (context, snapshot) {
             List<Widget> tabViews = [];
 
