@@ -1,2 +1,2 @@
 export 'web/log_output.dart';
-export 'native/sync_manager.dart';
+export 'web/sync_manager.dart';
