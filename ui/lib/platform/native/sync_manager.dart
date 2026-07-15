@@ -112,6 +112,29 @@ class SyncManager implements AbstractSyncManager {
       }
     }
 
+    _logSyncDebugInfo(localStats, recvd, debugEnabled: kDebugMode);
+    final files = toSync.values.toList();
+    logger.d(
+      '${files.isEmpty ? 'No' : files.length} files to sync for path: ${path.src}',
+    );
+    if (files.isEmpty) {
+      return UploadResults();
+    }
+    return await uploadManager.uploadFiles(files, path.dest, path.src);
+  }
+
+  /// Dumps every local and received SyncItem's metadata via logger.d(), for
+  /// debugging delta-exchange mismatches. Purely diagnostic — skipped
+  /// entirely when [debugEnabled] is false, so the per-item iteration and
+  /// string interpolation aren't paid for in release builds where this
+  /// output would never be surfaced anyway.
+  void _logSyncDebugInfo(
+    Map<String, SyncItem> localStats,
+    Map<String, SyncItem> recvd, {
+    required bool debugEnabled,
+  }) {
+    if (!debugEnabled) return;
+
     for (var entry in localStats.entries) {
       final stat = entry.value.stats!;
       logger.d(
@@ -122,15 +145,17 @@ class SyncManager implements AbstractSyncManager {
     for (var item in recvd.keys) {
       logger.d('Received SyncItem: $item ${recvd[item]?.stats?.toJson()}');
     }
-    final files = toSync.values.toList();
-    logger.d(
-      '${files.isEmpty ? 'No' : files.length} files to sync for path: ${path.src}',
-    );
-    if (files.isEmpty) {
-      return UploadResults();
-    }
-    return await uploadManager.uploadFiles(files, path.dest, path.src);
   }
+
+  /// Exposed for testing only. [_logSyncDebugInfo] is otherwise only
+  /// reachable via [sync], which ties [debugEnabled] to the compile-time
+  /// kDebugMode constant and can't be flipped from a test.
+  @visibleForTesting
+  void logSyncDebugInfoForTesting(
+    Map<String, SyncItem> localStats,
+    Map<String, SyncItem> recvd, {
+    required bool debugEnabled,
+  }) => _logSyncDebugInfo(localStats, recvd, debugEnabled: debugEnabled);
 
   /// Exposed for testing only. Lets a test observe events as they're
   /// parsed (via [onEvent]) rather than only once the whole map is
