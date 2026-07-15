@@ -27,13 +27,21 @@ class BrowserContainer extends StatefulWidget {
 
 class _BrowserContainerState extends State<BrowserContainer> {
   PortablePath currentDirectory = PortablePath(["/"]);
+  late void Function() _appStateListener;
 
   @override
   void initState() {
     super.initState();
-    widget.appState.registerListener(() {
+    _appStateListener = () {
       setState(() {});
-    });
+    };
+    widget.appState.registerListener(_appStateListener);
+  }
+
+  @override
+  void dispose() {
+    widget.appState.unregisterListener(_appStateListener);
+    super.dispose();
   }
 
   void _onItemTap(DirectoryEntry item) {
