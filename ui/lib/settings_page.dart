@@ -80,22 +80,28 @@ class SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _updateSyncPath(SyncPath path, String action) async {
-    if (action == 'delete') {
-      await _settings.removeSyncPath(path);
-      setState(() {});
-    } else if (action == 'sync' && widget.appState != null) {
-      logger.e('Sync action triggered for: $path');
-      var result = await widget.appState!.syncManager.sync(path);
-      logger.d('Upload results: $result');
-      // setState(() {});
-      await _settings.save();
-    } else if (action == 'add') {
-      await _settings.addSyncPath(path);
-      setState(() {});
-    }
-
-    if (action == "sync") {
-      logger.e('Sync action triggered but state is null');
+    switch (action) {
+      case 'delete':
+        await _settings.removeSyncPath(path);
+        setState(() {});
+        break;
+      case 'sync':
+        if (widget.appState != null) {
+          logger.e('Sync action triggered for: $path');
+          var result = await widget.appState!.syncManager.sync(path);
+          logger.d('Upload results: $result');
+          // setState(() {});
+          await _settings.save();
+        } else {
+          logger.e('Sync action triggered but state is null');
+        }
+        break;
+      case 'add':
+        await _settings.addSyncPath(path);
+        setState(() {});
+        break;
+      default:
+        logger.e('Unknown action: $action');
     }
   }
 
