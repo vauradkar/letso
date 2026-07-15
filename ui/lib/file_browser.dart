@@ -45,7 +45,7 @@ String formatTime(String mtime) {
       return 'Yesterday at ${DateFormat('HH:mm').format(dt)}';
     } else {
       // For other dates, format as desired, e.g., "Mon, Oct 2, 2025 at 09:05 PM"
-      return DateFormat('yyyy-mm-dd - HH:mm').format(dt);
+      return DateFormat('yyyy-MM-dd - HH:mm').format(dt);
     }
   } catch (e) {
     return mtime;
