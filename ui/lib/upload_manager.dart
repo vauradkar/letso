@@ -82,7 +82,6 @@ class UploadManager {
         await FileStat.fromPickerFile(file),
       );
       _syncStatus.removeFile(file.size);
-      await Future.delayed(const Duration(seconds: 1));
     }
   }
 
@@ -168,7 +167,6 @@ class UploadManager {
       );
 
       _syncStatus.removeFile(bytes.length);
-      await Future.delayed(const Duration(seconds: 1));
     }
     return results;
   }
