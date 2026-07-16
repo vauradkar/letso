@@ -56,3 +56,19 @@
 [38;5;196m[E][0m TIME: 2026-07-15T07:35:18.760177 Upload failed
 [D] TIME: 2026-07-15T07:35:37.937527 Found file: /var/folders/2t/vyp2kfm97fq7z8mx7bsshqx00000gp/T/f8UGyW/test_file.txt to upload to /dest/f8UGyW
 [38;5;196m[E][0m TIME: 2026-07-15T07:35:37.946878 Upload failed
+[D] TIME: 2026-07-15T22:46:15.196256 Found file: /tmp/BDFUFC/test_file.txt to upload to /dest/BDFUFC
+[38;5;196m[E][0m TIME: 2026-07-15T22:46:15.223110 Upload failed
+[D] TIME: 2026-07-15T22:46:57.975859 Found file: /tmp/CTGOFH/test_file.txt to upload to /dest/CTGOFH
+[38;5;196m[E][0m TIME: 2026-07-15T22:46:58.003604 Upload failed
+[D] TIME: 2026-07-15T22:49:11.392516 Found file: /tmp/SRADLR/test_file.txt to upload to /dest/SRADLR
+[38;5;196m[E][0m TIME: 2026-07-15T22:49:11.417066 Upload failed
+[D] TIME: 2026-07-15T22:49:17.329754 Found file: /tmp/MNWLXM/test_file.txt to upload to /dest/MNWLXM
+[38;5;196m[E][0m TIME: 2026-07-15T22:49:17.353410 Upload failed
+[D] TIME: 2026-07-15T22:57:04.643463 Found file: /tmp/VTTEGG/test_file.txt to upload to /dest/VTTEGG
+[38;5;196m[E][0m TIME: 2026-07-15T22:57:04.667138 Upload failed
+[D] TIME: 2026-07-15T22:57:19.982031 Found file: /tmp/ARYSGB/test_file.txt to upload to /dest/ARYSGB
+[38;5;196m[E][0m TIME: 2026-07-15T22:57:20.003801 Upload failed
+[38;5;196m[E][0m TIME: 2026-07-15T22:57:21.920282 Failed to load server version: Exception: Connection refused
+[38;5;196m[E][0m TIME: 2026-07-15T22:57:21.928921 Failed to load API version: Exception: Connection refused
+[D] TIME: 2026-07-15T23:01:22.931409 Found file: /tmp/RKWFAT/test_file.txt to upload to /dest/RKWFAT
+[38;5;196m[E][0m TIME: 2026-07-15T23:01:22.954783 Upload failed

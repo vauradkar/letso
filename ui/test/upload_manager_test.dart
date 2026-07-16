@@ -11,7 +11,7 @@ import 'package:mocktail/mocktail.dart';
 
 class MockApi extends Mock implements Api {}
 
-class FakeFilePicker extends FilePicker {
+class FakeFilePicker extends FilePickerPlatform {
   FilePickerResult? resultToReturn;
 
   @override
@@ -21,13 +21,14 @@ class FakeFilePicker extends FilePicker {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
-    bool allowCompression = false,
     int compressionQuality = 0,
     bool allowMultiple = false,
     bool withData = false,
     bool withReadStream = false,
     bool lockParentWindow = false,
     bool readSequential = false,
+    bool cancelUploadOnWindowBlur = true,
+    AndroidSAFOptions? androidSafOptions,
   }) async => resultToReturn;
 }
 
@@ -123,7 +124,7 @@ void main() {
             bytes: null,
           ),
         ]);
-      FilePicker.platform = fakeFilePicker;
+      FilePickerPlatform.instance = fakeFilePicker;
 
       // Act
       await uploadManager.uploadFile(PortablePath.fromString('/dest'));

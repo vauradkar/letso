@@ -1,9 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter test *)",
-      "Bash(jj log *)",
-      "Bash(jj --version)",
+      "Bash(jj status *)",
       "Bash(jj diff *)"
     ]
   }

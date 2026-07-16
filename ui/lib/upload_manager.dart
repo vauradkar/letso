@@ -84,22 +84,19 @@ class UploadManager {
       return;
     }
 
-    final List<PlatformFile> files = [];
-    for (var file in result.files) {
-      if (kIsWeb && file.bytes == null) {
-        logger.w('File ${file.name} has no data, skipping upload');
-        continue;
-      }
+    final List<PlatformFile> files = result.files;
+    for (var file in files) {
       _syncStatus.addFile(file.size);
-      files.add(file);
     }
 
     await _runConcurrently(files, concurrency, (file) async {
-      late Uint8List bytes;
-      if (file.bytes == null) {
-        bytes = await io.File(file.path!).readAsBytes();
-      } else {
-        bytes = file.bytes!;
+      final Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (e) {
+        logger.w('File ${file.name} has no data, skipping upload: $e');
+        _syncStatus.removeFile(file.size);
+        return;
       }
       logger.d('Uploading file: ${file.name} to $dest');
       await api.uploadFile(
@@ -117,7 +114,7 @@ class UploadManager {
     int concurrency = defaultUploadConcurrency,
   }) async {
     await _uploadPlatformFiles(
-      await FilePicker.platform.pickFiles(),
+      await FilePicker.pickFiles(),
       dest,
       concurrency: concurrency,
     );
@@ -128,7 +125,7 @@ class UploadManager {
     int concurrency = defaultUploadConcurrency,
   }) async {
     await _uploadPlatformFiles(
-      await FilePicker.platform.pickFiles(allowMultiple: true),
+      await FilePicker.pickFiles(),
       dest,
       concurrency: concurrency,
     );
@@ -236,7 +233,7 @@ class UploadManager {
       logger.d('Directory upload is not supported on web');
       return Future.value((null, Future.value(UploadResults())));
     }
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory == null) {
       logger.d('No directory selected for upload');
       return Future.value((null, Future.value(UploadResults())));
