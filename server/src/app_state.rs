@@ -66,9 +66,10 @@ impl AppState {
     }
 
     pub async fn delete_files(&self, paths: &[Path]) -> Result<(), Error> {
-        for path in paths {
-            self.upload_root.delete_file(path).await?;
-        }
+        futures_util::future::try_join_all(
+            paths.iter().map(|path| self.upload_root.delete_file(path)),
+        )
+        .await?;
         Ok(())
     }
 
@@ -117,5 +118,50 @@ impl TryFrom<&Args> for AppState {
             buffer_items: args.buffer_items,
             chunk_count: args.chunk_count,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pfs::TestRoot;
+
+    use super::*;
+
+    fn app_state(root: &TestRoot) -> AppState {
+        AppState {
+            upload_root: PortableFs::with_cache(root.root.path().to_path_buf()),
+            ui_dir: None,
+            buffer_items: 10,
+            chunk_count: 10,
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_files_removes_all_given_files() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let state = app_state(&root);
+        let paths = [
+            Path::try_from(std::path::Path::new("file1.txt")).unwrap(),
+            Path::try_from(std::path::Path::new("file2.txt")).unwrap(),
+            Path::try_from(std::path::Path::new("dir1/file3.txt")).unwrap(),
+        ];
+
+        state.delete_files(&paths).await.unwrap();
+
+        for path in &paths {
+            assert!(!state.upload_root.as_abs_path(path).exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_files_errors_on_missing_file_without_panicking() {
+        let root = TestRoot::new(std::thread::current().name()).await.unwrap();
+        let state = app_state(&root);
+        let paths = [
+            Path::try_from(std::path::Path::new("file1.txt")).unwrap(),
+            Path::try_from(std::path::Path::new("does_not_exist.txt")).unwrap(),
+        ];
+
+        assert!(state.delete_files(&paths).await.is_err());
     }
 }
