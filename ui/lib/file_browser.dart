@@ -52,11 +52,29 @@ String formatTime(String mtime) {
   }
 }
 
+/// Whether [a] and [b] represent the same directory contents, comparing by
+/// value rather than list/object identity. `Directory` is freshly
+/// deserialized from JSON on every `browsePath` call, so `items` is always a
+/// new `List` of new `DirectoryEntry` instances even when nothing changed.
+bool sameDirectoryEntries(List<DirectoryEntry> a, List<DirectoryEntry> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].name != b[i].name || a[i].stats != b[i].stats) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class _FileBrowserState extends State<FileBrowser> {
   ViewType _viewType = ViewType.list;
   SortColumn _sortColumn = SortColumn.name;
   SortOrder _sortOrder = SortOrder.ascending;
   List<DirectoryEntry> _sortedItems = [];
+
+  @visibleForTesting
+  int sortCallCountForTesting = 0;
 
   @override
   void initState() {
@@ -68,13 +86,14 @@ class _FileBrowserState extends State<FileBrowser> {
   @override
   void didUpdateWidget(FileBrowser oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.directory.items != widget.directory.items) {
+    if (!sameDirectoryEntries(oldWidget.directory.items, widget.directory.items)) {
       _sortedItems = List.from(widget.directory.items);
       _sortItems();
     }
   }
 
   void _sortItems() {
+    sortCallCountForTesting++;
     _sortedItems.sort((a, b) {
       int comparison = 0;
 
