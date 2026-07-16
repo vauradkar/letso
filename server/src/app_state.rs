@@ -66,10 +66,15 @@ impl AppState {
     }
 
     pub async fn delete_files(&self, paths: &[Path]) -> Result<(), Error> {
-        futures_util::future::try_join_all(
-            paths.iter().map(|path| self.upload_root.delete_file(path)),
-        )
-        .await?;
+        // Use `join_all` rather than `try_join_all` so that every deletion
+        // runs to completion even if another path fails; short-circuiting
+        // would leave in-flight `tokio::fs::remove_file` blocking tasks
+        // racing with anything that reads the directory right after this
+        // function returns.
+        futures_util::future::join_all(paths.iter().map(|path| self.upload_root.delete_file(path)))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<()>, Error>>()?;
         Ok(())
     }
 
