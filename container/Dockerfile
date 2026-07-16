@@ -2,21 +2,18 @@
 # STAGE 1: Backend Dependencies (for caching)
 # This stage only builds the dependencies, which change less often than the code.
 # ----------------------------------------------------------------------------------
-FROM rust:1.90 AS backend-deps
+FROM rust:1.91 AS backend-deps
 
 WORKDIR /app
 
 # Copy only the manifest files first
 COPY Cargo.toml Cargo.lock ./
-COPY shlib/Cargo.toml ./shlib/
 COPY server/Cargo.toml ./server/
 
 # Create a dummy src/main.rs to force cargo to download and build dependencies
 # This is the standard Rust "caching trick"
 RUN mkdir -p server/src/
 RUN echo "//! placeholder main \n fn main() {}" > server/src/main.rs
-RUN mkdir -p shlib/src/
-RUN echo "//! placeholder lib" > shlib/src/lib.rs
 
 # Build dependencies (and throw away the dummy build)
 # The result is that the /usr/local/cargo cache is populated.
@@ -30,7 +27,7 @@ FROM backend-deps AS backend-builder
 
 # Copy the source code now (this invalidates the cache after Stage 1 if code changes)
 COPY . .
-RUN touch shlib/src/lib.rs server/src/main.rs
+RUN touch server/src/main.rs
 
 # Build the Rust backend
 # This will reuse the dependencies built in Stage 1, making this step much faster
