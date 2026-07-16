@@ -34,7 +34,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn browse_path(&self, path: &Path) -> Result<Directory, Error> {
-        let mut entries = self.upload_root.read_dir(path).await?;
+        let mut entries = self.upload_root.read_dir(path, false).await?;
         entries.current_path = path.clone();
         Ok(entries)
     }
